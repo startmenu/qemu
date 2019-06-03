@@ -263,15 +263,16 @@ void timer_get(QEMUFile *f, QEMUTimer *ts)
  * Not in vmstate.c to not add qemu-timer.c as dependency to vmstate.c
  */
 
-static int get_timer(QEMUFile *f, void *pv, size_t size, VMStateField *field)
+static int get_timer(QEMUFile *f, void *pv, size_t size,
+                     const VMStateField *field)
 {
     QEMUTimer *v = pv;
     timer_get(f, v);
     return 0;
 }
 
-static int put_timer(QEMUFile *f, void *pv, size_t size, VMStateField *field,
-                     QJSON *vmdesc)
+static int put_timer(QEMUFile *f, void *pv, size_t size,
+                     const VMStateField *field, QJSON *vmdesc)
 {
     QEMUTimer *v = pv;
     timer_put(f, v);
@@ -302,7 +303,7 @@ typedef struct SaveStateEntry {
     int section_id;
     /* section id read from the stream */
     int load_section_id;
-    SaveVMHandlers *ops;
+    const SaveVMHandlers *ops;
     const VMStateDescription *vmsd;
     void *opaque;
     CompatEntry *compat;
@@ -613,7 +614,7 @@ int register_savevm_live(DeviceState *dev,
                          const char *idstr,
                          int instance_id,
                          int version_id,
-                         SaveVMHandlers *ops,
+                         const SaveVMHandlers *ops,
                          void *opaque)
 {
     SaveStateEntry *se;
@@ -1327,20 +1328,24 @@ static int qemu_savevm_state(QEMUFile *f, Error **errp)
     MigrationState *ms = migrate_get_current();
     MigrationStatus status;
 
-    migrate_init(ms);
-
-    ms->to_dst_file = f;
+    if (migration_is_setup_or_active(ms->state) ||
+        ms->state == MIGRATION_STATUS_CANCELLING ||
+        ms->state == MIGRATION_STATUS_COLO) {
+        error_setg(errp, QERR_MIGRATION_ACTIVE);
+        return -EINVAL;
+    }
 
     if (migration_is_blocked(errp)) {
-        ret = -EINVAL;
-        goto done;
+        return -EINVAL;
     }
 
     if (migrate_use_block()) {
         error_setg(errp, "Block migration and snapshots are incompatible");
-        ret = -EINVAL;
-        goto done;
+        return -EINVAL;
     }
+
+    migrate_init(ms);
+    ms->to_dst_file = f;
 
     qemu_mutex_unlock_iothread();
     qemu_savevm_state_header(f);
@@ -1363,7 +1368,6 @@ static int qemu_savevm_state(QEMUFile *f, Error **errp)
         error_setg_errno(errp, -ret, "Error while writing VM state");
     }
 
-done:
     if (ret != 0) {
         status = MIGRATION_STATUS_FAILED;
     } else {
@@ -1725,6 +1729,7 @@ static int loadvm_postcopy_handle_listen(MigrationIncomingState *mis)
      */
     if (migrate_postcopy_ram()) {
         if (postcopy_ram_enable_notify(mis)) {
+            postcopy_ram_incoming_cleanup(mis);
             return -1;
         }
     }
@@ -2451,6 +2456,10 @@ int save_snapshot(const char *name, Error **errp)
     qemu_timeval tv;
     struct tm tm;
     AioContext *aio_context;
+
+    if (migration_is_blocked(errp)) {
+        return false;
+    }
 
     if (!replay_can_snapshot()) {
         error_setg(errp, "Record/replay does not allow making snapshot "

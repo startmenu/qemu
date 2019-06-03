@@ -67,7 +67,7 @@ CONFIG_ALL=y
 -include config-all-devices.mak
 -include config-all-disas.mak
 
-config-host.mak: $(SRC_PATH)/configure $(SRC_PATH)/pc-bios
+config-host.mak: $(SRC_PATH)/configure $(SRC_PATH)/pc-bios $(SRC_PATH)/VERSION
 	@echo $@ is out-of-date, running configure
 	@# TODO: The next lines include code which supports a smooth
 	@# transition from old configurations without config.status.
@@ -88,82 +88,26 @@ endif
 include $(SRC_PATH)/rules.mak
 
 GENERATED_FILES = qemu-version.h config-host.h qemu-options.def
-GENERATED_FILES += qapi/qapi-builtin-types.h qapi/qapi-builtin-types.c
-GENERATED_FILES += qapi/qapi-types.h qapi/qapi-types.c
-GENERATED_FILES += qapi/qapi-types-block-core.h qapi/qapi-types-block-core.c
-GENERATED_FILES += qapi/qapi-types-block.h qapi/qapi-types-block.c
-GENERATED_FILES += qapi/qapi-types-char.h qapi/qapi-types-char.c
-GENERATED_FILES += qapi/qapi-types-common.h qapi/qapi-types-common.c
-GENERATED_FILES += qapi/qapi-types-crypto.h qapi/qapi-types-crypto.c
-GENERATED_FILES += qapi/qapi-types-introspect.h qapi/qapi-types-introspect.c
-GENERATED_FILES += qapi/qapi-types-job.h qapi/qapi-types-job.c
-GENERATED_FILES += qapi/qapi-types-migration.h qapi/qapi-types-migration.c
-GENERATED_FILES += qapi/qapi-types-misc.h qapi/qapi-types-misc.c
-GENERATED_FILES += qapi/qapi-types-net.h qapi/qapi-types-net.c
-GENERATED_FILES += qapi/qapi-types-rocker.h qapi/qapi-types-rocker.c
-GENERATED_FILES += qapi/qapi-types-run-state.h qapi/qapi-types-run-state.c
-GENERATED_FILES += qapi/qapi-types-sockets.h qapi/qapi-types-sockets.c
-GENERATED_FILES += qapi/qapi-types-tpm.h qapi/qapi-types-tpm.c
-GENERATED_FILES += qapi/qapi-types-trace.h qapi/qapi-types-trace.c
-GENERATED_FILES += qapi/qapi-types-transaction.h qapi/qapi-types-transaction.c
-GENERATED_FILES += qapi/qapi-types-ui.h qapi/qapi-types-ui.c
-GENERATED_FILES += qapi/qapi-builtin-visit.h qapi/qapi-builtin-visit.c
-GENERATED_FILES += qapi/qapi-visit.h qapi/qapi-visit.c
-GENERATED_FILES += qapi/qapi-visit-block-core.h qapi/qapi-visit-block-core.c
-GENERATED_FILES += qapi/qapi-visit-block.h qapi/qapi-visit-block.c
-GENERATED_FILES += qapi/qapi-visit-char.h qapi/qapi-visit-char.c
-GENERATED_FILES += qapi/qapi-visit-common.h qapi/qapi-visit-common.c
-GENERATED_FILES += qapi/qapi-visit-crypto.h qapi/qapi-visit-crypto.c
-GENERATED_FILES += qapi/qapi-visit-introspect.h qapi/qapi-visit-introspect.c
-GENERATED_FILES += qapi/qapi-visit-job.h qapi/qapi-visit-job.c
-GENERATED_FILES += qapi/qapi-visit-migration.h qapi/qapi-visit-migration.c
-GENERATED_FILES += qapi/qapi-visit-misc.h qapi/qapi-visit-misc.c
-GENERATED_FILES += qapi/qapi-visit-net.h qapi/qapi-visit-net.c
-GENERATED_FILES += qapi/qapi-visit-rocker.h qapi/qapi-visit-rocker.c
-GENERATED_FILES += qapi/qapi-visit-run-state.h qapi/qapi-visit-run-state.c
-GENERATED_FILES += qapi/qapi-visit-sockets.h qapi/qapi-visit-sockets.c
-GENERATED_FILES += qapi/qapi-visit-tpm.h qapi/qapi-visit-tpm.c
-GENERATED_FILES += qapi/qapi-visit-trace.h qapi/qapi-visit-trace.c
-GENERATED_FILES += qapi/qapi-visit-transaction.h qapi/qapi-visit-transaction.c
-GENERATED_FILES += qapi/qapi-visit-ui.h qapi/qapi-visit-ui.c
-GENERATED_FILES += qapi/qapi-commands.h qapi/qapi-commands.c
-GENERATED_FILES += qapi/qapi-commands-block-core.h qapi/qapi-commands-block-core.c
-GENERATED_FILES += qapi/qapi-commands-block.h qapi/qapi-commands-block.c
-GENERATED_FILES += qapi/qapi-commands-char.h qapi/qapi-commands-char.c
-GENERATED_FILES += qapi/qapi-commands-common.h qapi/qapi-commands-common.c
-GENERATED_FILES += qapi/qapi-commands-crypto.h qapi/qapi-commands-crypto.c
-GENERATED_FILES += qapi/qapi-commands-introspect.h qapi/qapi-commands-introspect.c
-GENERATED_FILES += qapi/qapi-commands-job.h qapi/qapi-commands-job.c
-GENERATED_FILES += qapi/qapi-commands-migration.h qapi/qapi-commands-migration.c
-GENERATED_FILES += qapi/qapi-commands-misc.h qapi/qapi-commands-misc.c
-GENERATED_FILES += qapi/qapi-commands-net.h qapi/qapi-commands-net.c
-GENERATED_FILES += qapi/qapi-commands-rocker.h qapi/qapi-commands-rocker.c
-GENERATED_FILES += qapi/qapi-commands-run-state.h qapi/qapi-commands-run-state.c
-GENERATED_FILES += qapi/qapi-commands-sockets.h qapi/qapi-commands-sockets.c
-GENERATED_FILES += qapi/qapi-commands-tpm.h qapi/qapi-commands-tpm.c
-GENERATED_FILES += qapi/qapi-commands-trace.h qapi/qapi-commands-trace.c
-GENERATED_FILES += qapi/qapi-commands-transaction.h qapi/qapi-commands-transaction.c
-GENERATED_FILES += qapi/qapi-commands-ui.h qapi/qapi-commands-ui.c
-GENERATED_FILES += qapi/qapi-events.h qapi/qapi-events.c
-GENERATED_FILES += qapi/qapi-events-block-core.h qapi/qapi-events-block-core.c
-GENERATED_FILES += qapi/qapi-events-block.h qapi/qapi-events-block.c
-GENERATED_FILES += qapi/qapi-events-char.h qapi/qapi-events-char.c
-GENERATED_FILES += qapi/qapi-events-common.h qapi/qapi-events-common.c
-GENERATED_FILES += qapi/qapi-events-crypto.h qapi/qapi-events-crypto.c
-GENERATED_FILES += qapi/qapi-events-introspect.h qapi/qapi-events-introspect.c
-GENERATED_FILES += qapi/qapi-events-job.h qapi/qapi-events-job.c
-GENERATED_FILES += qapi/qapi-events-migration.h qapi/qapi-events-migration.c
-GENERATED_FILES += qapi/qapi-events-misc.h qapi/qapi-events-misc.c
-GENERATED_FILES += qapi/qapi-events-net.h qapi/qapi-events-net.c
-GENERATED_FILES += qapi/qapi-events-rocker.h qapi/qapi-events-rocker.c
-GENERATED_FILES += qapi/qapi-events-run-state.h qapi/qapi-events-run-state.c
-GENERATED_FILES += qapi/qapi-events-sockets.h qapi/qapi-events-sockets.c
-GENERATED_FILES += qapi/qapi-events-tpm.h qapi/qapi-events-tpm.c
-GENERATED_FILES += qapi/qapi-events-trace.h qapi/qapi-events-trace.c
-GENERATED_FILES += qapi/qapi-events-transaction.h qapi/qapi-events-transaction.c
-GENERATED_FILES += qapi/qapi-events-ui.h qapi/qapi-events-ui.c
-GENERATED_FILES += qapi/qapi-introspect.c qapi/qapi-introspect.h
-GENERATED_FILES += qapi/qapi-doc.texi
+
+#see Makefile.objs for the definition of QAPI_MODULES
+GENERATED_QAPI_FILES = qapi/qapi-builtin-types.h qapi/qapi-builtin-types.c
+GENERATED_QAPI_FILES += qapi/qapi-types.h qapi/qapi-types.c
+GENERATED_QAPI_FILES += $(QAPI_MODULES:%=qapi/qapi-types-%.h)
+GENERATED_QAPI_FILES += $(QAPI_MODULES:%=qapi/qapi-types-%.c)
+GENERATED_QAPI_FILES += qapi/qapi-builtin-visit.h qapi/qapi-builtin-visit.c
+GENERATED_QAPI_FILES += qapi/qapi-visit.h qapi/qapi-visit.c
+GENERATED_QAPI_FILES += $(QAPI_MODULES:%=qapi/qapi-visit-%.h)
+GENERATED_QAPI_FILES += $(QAPI_MODULES:%=qapi/qapi-visit-%.c)
+GENERATED_QAPI_FILES += qapi/qapi-commands.h qapi/qapi-commands.c
+GENERATED_QAPI_FILES += $(QAPI_MODULES:%=qapi/qapi-commands-%.h)
+GENERATED_QAPI_FILES += $(QAPI_MODULES:%=qapi/qapi-commands-%.c)
+GENERATED_QAPI_FILES += qapi/qapi-events.h qapi/qapi-events.c
+GENERATED_QAPI_FILES += $(QAPI_MODULES:%=qapi/qapi-events-%.h)
+GENERATED_QAPI_FILES += $(QAPI_MODULES:%=qapi/qapi-events-%.c)
+GENERATED_QAPI_FILES += qapi/qapi-introspect.c qapi/qapi-introspect.h
+GENERATED_QAPI_FILES += qapi/qapi-doc.texi
+
+GENERATED_FILES += $(GENERATED_QAPI_FILES)
 
 GENERATED_FILES += trace/generated-tcg-tracers.h
 
@@ -201,7 +145,7 @@ tracetool-y += $(shell find $(SRC_PATH)/scripts/tracetool -name "*.py")
 
 %/trace.h: %/trace.h-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
-%/trace.h-timestamp: $(SRC_PATH)/%/trace-events $(tracetool-y)
+%/trace.h-timestamp: $(SRC_PATH)/%/trace-events $(tracetool-y) $(BUILD_DIR)/config-host.mak
 	$(call quiet-command,$(TRACETOOL) \
 		--group=$(call trace-group-name,$@) \
 		--format=h \
@@ -210,7 +154,7 @@ tracetool-y += $(shell find $(SRC_PATH)/scripts/tracetool -name "*.py")
 
 %/trace.c: %/trace.c-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
-%/trace.c-timestamp: $(SRC_PATH)/%/trace-events $(tracetool-y)
+%/trace.c-timestamp: $(SRC_PATH)/%/trace-events $(tracetool-y) $(BUILD_DIR)/config-host.mak
 	$(call quiet-command,$(TRACETOOL) \
 		--group=$(call trace-group-name,$@) \
 		--format=c \
@@ -219,7 +163,7 @@ tracetool-y += $(shell find $(SRC_PATH)/scripts/tracetool -name "*.py")
 
 %/trace-ust.h: %/trace-ust.h-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
-%/trace-ust.h-timestamp: $(SRC_PATH)/%/trace-events $(tracetool-y)
+%/trace-ust.h-timestamp: $(SRC_PATH)/%/trace-events $(tracetool-y) $(BUILD_DIR)/config-host.mak
 	$(call quiet-command,$(TRACETOOL) \
 		--group=$(call trace-group-name,$@) \
 		--format=ust-events-h \
@@ -243,7 +187,7 @@ tracetool-y += $(shell find $(SRC_PATH)/scripts/tracetool -name "*.py")
 
 trace-root.h: trace-root.h-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
-trace-root.h-timestamp: $(SRC_PATH)/trace-events $(tracetool-y)
+trace-root.h-timestamp: $(SRC_PATH)/trace-events $(tracetool-y) $(BUILD_DIR)/config-host.mak
 	$(call quiet-command,$(TRACETOOL) \
 		--group=root \
 		--format=h \
@@ -252,7 +196,7 @@ trace-root.h-timestamp: $(SRC_PATH)/trace-events $(tracetool-y)
 
 trace-root.c: trace-root.c-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
-trace-root.c-timestamp: $(SRC_PATH)/trace-events $(tracetool-y)
+trace-root.c-timestamp: $(SRC_PATH)/trace-events $(tracetool-y) $(BUILD_DIR)/config-host.mak
 	$(call quiet-command,$(TRACETOOL) \
 		--group=root \
 		--format=c \
@@ -261,7 +205,7 @@ trace-root.c-timestamp: $(SRC_PATH)/trace-events $(tracetool-y)
 
 trace-ust-root.h: trace-ust-root.h-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
-trace-ust-root.h-timestamp: $(SRC_PATH)/trace-events $(tracetool-y)
+trace-ust-root.h-timestamp: $(SRC_PATH)/trace-events $(tracetool-y) $(BUILD_DIR)/config-host.mak
 	$(call quiet-command,$(TRACETOOL) \
 		--group=root \
 		--format=ust-events-h \
@@ -270,7 +214,7 @@ trace-ust-root.h-timestamp: $(SRC_PATH)/trace-events $(tracetool-y)
 
 trace-ust-all.h: trace-ust-all.h-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
-trace-ust-all.h-timestamp: $(trace-events-files) $(tracetool-y)
+trace-ust-all.h-timestamp: $(trace-events-files) $(tracetool-y) $(BUILD_DIR)/config-host.mak
 	$(call quiet-command,$(TRACETOOL) \
 		--group=all \
 		--format=ust-events-h \
@@ -279,7 +223,7 @@ trace-ust-all.h-timestamp: $(trace-events-files) $(tracetool-y)
 
 trace-ust-all.c: trace-ust-all.c-timestamp
 	@cmp $< $@ >/dev/null 2>&1 || cp $< $@
-trace-ust-all.c-timestamp: $(trace-events-files) $(tracetool-y)
+trace-ust-all.c-timestamp: $(trace-events-files) $(tracetool-y) $(BUILD_DIR)/config-host.mak
 	$(call quiet-command,$(TRACETOOL) \
 		--group=all \
 		--format=ust-events-c \
@@ -361,6 +305,9 @@ DOCS+=docs/qemu-cpu-models.7
 ifdef CONFIG_VIRTFS
 DOCS+=fsdev/virtfs-proxy-helper.1
 endif
+ifdef CONFIG_TRACE_SYSTEMTAP
+DOCS+=scripts/qemu-trace-stap.1
+endif
 else
 DOCS=
 endif
@@ -418,6 +365,7 @@ dummy := $(call unnest-vars,, \
                 elf2dmp-obj-y \
                 ivshmem-client-obj-y \
                 ivshmem-server-obj-y \
+                rdmacm-mux-obj-y \
                 libvhost-user-obj-y \
                 vhost-user-scsi-obj-y \
                 vhost-user-blk-obj-y \
@@ -434,7 +382,8 @@ dummy := $(call unnest-vars,, \
                 ui-obj-m \
                 audio-obj-y \
                 audio-obj-m \
-                trace-obj-y)
+                trace-obj-y \
+                slirp-obj-y)
 
 include $(SRC_PATH)/tests/Makefile.include
 
@@ -507,7 +456,7 @@ CAP_CFLAGS += -DCAPSTONE_HAS_X86
 subdir-capstone: .git-submodule-status
 	$(call quiet-command,$(MAKE) -C $(SRC_PATH)/capstone CAPSTONE_SHARED=no BUILDDIR="$(BUILD_DIR)/capstone" CC="$(CC)" AR="$(AR)" LD="$(LD)" RANLIB="$(RANLIB)" CFLAGS="$(CAP_CFLAGS)" $(SUBDIR_MAKEFLAGS) $(BUILD_DIR)/capstone/$(LIBCAPSTONE))
 
-$(SUBDIR_RULES): libqemuutil.a $(common-obj-y) $(chardev-obj-y) \
+$(SUBDIR_RULES): libqemuutil.a $(common-obj-y) $(chardev-obj-y) $(slirp-obj-y) \
 	$(qom-obj-y) $(crypto-aes-obj-$(CONFIG_USER_ONLY))
 
 ROMSUBDIR_RULES=$(patsubst %,romsubdir-%, $(ROMS))
@@ -583,100 +532,10 @@ qga/qapi-generated/qapi-gen-timestamp: $(SRC_PATH)/qga/qapi-schema.json $(qapi-p
 		"GEN","$(@:%-timestamp=%)")
 	@>$@
 
-qapi-modules = $(SRC_PATH)/qapi/qapi-schema.json $(SRC_PATH)/qapi/common.json \
-               $(SRC_PATH)/qapi/block.json $(SRC_PATH)/qapi/block-core.json \
-               $(SRC_PATH)/qapi/char.json \
-               $(SRC_PATH)/qapi/crypto.json \
-               $(SRC_PATH)/qapi/introspect.json \
-               $(SRC_PATH)/qapi/job.json \
-               $(SRC_PATH)/qapi/migration.json \
-               $(SRC_PATH)/qapi/misc.json \
-               $(SRC_PATH)/qapi/net.json \
-               $(SRC_PATH)/qapi/rocker.json \
-               $(SRC_PATH)/qapi/run-state.json \
-               $(SRC_PATH)/qapi/sockets.json \
-               $(SRC_PATH)/qapi/tpm.json \
-               $(SRC_PATH)/qapi/trace.json \
-               $(SRC_PATH)/qapi/transaction.json \
-               $(SRC_PATH)/qapi/ui.json
+qapi-modules = $(SRC_PATH)/qapi/qapi-schema.json \
+               $(QAPI_MODULES:%=$(SRC_PATH)/qapi/%.json)
 
-qapi/qapi-builtin-types.c qapi/qapi-builtin-types.h \
-qapi/qapi-types.c qapi/qapi-types.h \
-qapi/qapi-types-block-core.c qapi/qapi-types-block-core.h \
-qapi/qapi-types-block.c qapi/qapi-types-block.h \
-qapi/qapi-types-char.c qapi/qapi-types-char.h \
-qapi/qapi-types-common.c qapi/qapi-types-common.h \
-qapi/qapi-types-crypto.c qapi/qapi-types-crypto.h \
-qapi/qapi-types-introspect.c qapi/qapi-types-introspect.h \
-qapi/qapi-types-job.c qapi/qapi-types-job.h \
-qapi/qapi-types-migration.c qapi/qapi-types-migration.h \
-qapi/qapi-types-misc.c qapi/qapi-types-misc.h \
-qapi/qapi-types-net.c qapi/qapi-types-net.h \
-qapi/qapi-types-rocker.c qapi/qapi-types-rocker.h \
-qapi/qapi-types-run-state.c qapi/qapi-types-run-state.h \
-qapi/qapi-types-sockets.c qapi/qapi-types-sockets.h \
-qapi/qapi-types-tpm.c qapi/qapi-types-tpm.h \
-qapi/qapi-types-trace.c qapi/qapi-types-trace.h \
-qapi/qapi-types-transaction.c qapi/qapi-types-transaction.h \
-qapi/qapi-types-ui.c qapi/qapi-types-ui.h \
-qapi/qapi-builtin-visit.c qapi/qapi-builtin-visit.h \
-qapi/qapi-visit.c qapi/qapi-visit.h \
-qapi/qapi-visit-block-core.c qapi/qapi-visit-block-core.h \
-qapi/qapi-visit-block.c qapi/qapi-visit-block.h \
-qapi/qapi-visit-char.c qapi/qapi-visit-char.h \
-qapi/qapi-visit-common.c qapi/qapi-visit-common.h \
-qapi/qapi-visit-crypto.c qapi/qapi-visit-crypto.h \
-qapi/qapi-visit-introspect.c qapi/qapi-visit-introspect.h \
-qapi/qapi-visit-job.c qapi/qapi-visit-job.h \
-qapi/qapi-visit-migration.c qapi/qapi-visit-migration.h \
-qapi/qapi-visit-misc.c qapi/qapi-visit-misc.h \
-qapi/qapi-visit-net.c qapi/qapi-visit-net.h \
-qapi/qapi-visit-rocker.c qapi/qapi-visit-rocker.h \
-qapi/qapi-visit-run-state.c qapi/qapi-visit-run-state.h \
-qapi/qapi-visit-sockets.c qapi/qapi-visit-sockets.h \
-qapi/qapi-visit-tpm.c qapi/qapi-visit-tpm.h \
-qapi/qapi-visit-trace.c qapi/qapi-visit-trace.h \
-qapi/qapi-visit-transaction.c qapi/qapi-visit-transaction.h \
-qapi/qapi-visit-ui.c qapi/qapi-visit-ui.h \
-qapi/qapi-commands.h qapi/qapi-commands.c \
-qapi/qapi-commands-block-core.c qapi/qapi-commands-block-core.h \
-qapi/qapi-commands-block.c qapi/qapi-commands-block.h \
-qapi/qapi-commands-char.c qapi/qapi-commands-char.h \
-qapi/qapi-commands-common.c qapi/qapi-commands-common.h \
-qapi/qapi-commands-crypto.c qapi/qapi-commands-crypto.h \
-qapi/qapi-commands-introspect.c qapi/qapi-commands-introspect.h \
-qapi/qapi-commands-job.c qapi/qapi-commands-job.h \
-qapi/qapi-commands-migration.c qapi/qapi-commands-migration.h \
-qapi/qapi-commands-misc.c qapi/qapi-commands-misc.h \
-qapi/qapi-commands-net.c qapi/qapi-commands-net.h \
-qapi/qapi-commands-rocker.c qapi/qapi-commands-rocker.h \
-qapi/qapi-commands-run-state.c qapi/qapi-commands-run-state.h \
-qapi/qapi-commands-sockets.c qapi/qapi-commands-sockets.h \
-qapi/qapi-commands-tpm.c qapi/qapi-commands-tpm.h \
-qapi/qapi-commands-trace.c qapi/qapi-commands-trace.h \
-qapi/qapi-commands-transaction.c qapi/qapi-commands-transaction.h \
-qapi/qapi-commands-ui.c qapi/qapi-commands-ui.h \
-qapi/qapi-events.c qapi/qapi-events.h \
-qapi/qapi-events-block-core.c qapi/qapi-events-block-core.h \
-qapi/qapi-events-block.c qapi/qapi-events-block.h \
-qapi/qapi-events-char.c qapi/qapi-events-char.h \
-qapi/qapi-events-common.c qapi/qapi-events-common.h \
-qapi/qapi-events-crypto.c qapi/qapi-events-crypto.h \
-qapi/qapi-events-introspect.c qapi/qapi-events-introspect.h \
-qapi/qapi-events-job.c qapi/qapi-events-job.h \
-qapi/qapi-events-migration.c qapi/qapi-events-migration.h \
-qapi/qapi-events-misc.c qapi/qapi-events-misc.h \
-qapi/qapi-events-net.c qapi/qapi-events-net.h \
-qapi/qapi-events-rocker.c qapi/qapi-events-rocker.h \
-qapi/qapi-events-run-state.c qapi/qapi-events-run-state.h \
-qapi/qapi-events-sockets.c qapi/qapi-events-sockets.h \
-qapi/qapi-events-tpm.c qapi/qapi-events-tpm.h \
-qapi/qapi-events-trace.c qapi/qapi-events-trace.h \
-qapi/qapi-events-transaction.c qapi/qapi-events-transaction.h \
-qapi/qapi-events-ui.c qapi/qapi-events-ui.h \
-qapi/qapi-introspect.h qapi/qapi-introspect.c \
-qapi/qapi-doc.texi: \
-qapi-gen-timestamp ;
+$(GENERATED_QAPI_FILES): qapi-gen-timestamp ;
 qapi-gen-timestamp: $(qapi-modules) $(qapi-py)
 	$(call quiet-command,$(PYTHON) $(SRC_PATH)/scripts/qapi-gen.py \
 		-o "qapi" -b $<, \
@@ -711,8 +570,8 @@ ifneq ($(EXESUF),)
 qemu-ga: qemu-ga$(EXESUF) $(QGA_VSS_PROVIDER) $(QEMU_GA_MSI)
 endif
 
-elf2dmp: LIBS = $(CURL_LIBS)
-elf2dmp: $(elf2dmp-obj-y)
+elf2dmp$(EXESUF): LIBS += $(CURL_LIBS)
+elf2dmp$(EXESUF): $(elf2dmp-obj-y)
 	$(call LINK, $^)
 
 ifdef CONFIG_IVSHMEM
@@ -724,6 +583,10 @@ endif
 vhost-user-scsi$(EXESUF): $(vhost-user-scsi-obj-y) libvhost-user.a
 	$(call LINK, $^)
 vhost-user-blk$(EXESUF): $(vhost-user-blk-obj-y) libvhost-user.a
+	$(call LINK, $^)
+
+rdmacm-mux$(EXESUF): LIBS += "-libumad"
+rdmacm-mux$(EXESUF): $(rdmacm-mux-obj-y) $(COMMON_LDADDS)
 	$(call LINK, $^)
 
 module_block.h: $(SRC_PATH)/scripts/modules/module_block.py config-host.mak
@@ -794,9 +657,9 @@ distclean: clean
 	rm -Rf .sdk
 	if test -f dtc/version_gen.h; then $(MAKE) $(DTC_MAKE_ARGS) clean; fi
 
-KEYMAPS=da     en-gb  et  fr     fr-ch  is  lt  modifiers  no  pt-br  sv \
+KEYMAPS=da     en-gb  et  fr     fr-ch  is  lt  no  pt-br  sv \
 ar      de     en-us  fi  fr-be  hr     it  lv  nl         pl  ru     th \
-common  de-ch  es     fo  fr-ca  hu     ja  mk  nl-be      pt  sl     tr \
+de-ch  es     fo  fr-ca  hu     ja  mk  pt  sl     tr \
 bepo    cz
 
 ifdef INSTALL_BLOBS
@@ -809,9 +672,8 @@ pxe-pcnet.rom pxe-rtl8139.rom pxe-virtio.rom \
 efi-e1000.rom efi-eepro100.rom efi-ne2k_pci.rom \
 efi-pcnet.rom efi-rtl8139.rom efi-virtio.rom \
 efi-e1000e.rom efi-vmxnet3.rom \
-qemu-icon.bmp qemu_logo_no_text.svg \
 bamboo.dtb canyonlands.dtb petalogix-s3adsp1800.dtb petalogix-ml605.dtb \
-multiboot.bin linuxboot.bin linuxboot_dma.bin kvmvapic.bin \
+multiboot.bin linuxboot.bin linuxboot_dma.bin kvmvapic.bin pvh.bin \
 s390-ccw.img s390-netboot.img \
 spapr-rtas.bin slof.bin skiboot.lid \
 palcode-clipper \
@@ -840,6 +702,9 @@ ifneq ($(TOOLS),)
 	$(INSTALL_DIR) "$(DESTDIR)$(mandir)/man8"
 	$(INSTALL_DATA) qemu-nbd.8 "$(DESTDIR)$(mandir)/man8"
 endif
+ifdef CONFIG_TRACE_SYSTEMTAP
+	$(INSTALL_DATA) scripts/qemu-trace-stap.1 "$(DESTDIR)$(mandir)/man1"
+endif
 ifneq (,$(findstring qemu-ga,$(TOOLS)))
 	$(INSTALL_DATA) qemu-ga.8 "$(DESTDIR)$(mandir)/man8"
 	$(INSTALL_DATA) docs/interop/qemu-ga-ref.html "$(DESTDIR)$(qemu_docdir)"
@@ -862,6 +727,7 @@ ifneq (,$(findstring qemu-ga,$(TOOLS)))
 endif
 endif
 
+ICON_SIZES=16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512
 
 install: all $(if $(BUILD_DOCS),install-doc) install-datadir install-localstatedir
 ifneq ($(TOOLS),)
@@ -878,11 +744,28 @@ endif
 ifneq ($(HELPERS-y),)
 	$(call install-prog,$(HELPERS-y),$(DESTDIR)$(libexecdir))
 endif
+ifdef CONFIG_TRACE_SYSTEMTAP
+	$(INSTALL_PROG) "scripts/qemu-trace-stap" $(DESTDIR)$(bindir)
+endif
 ifneq ($(BLOBS),)
 	set -e; for x in $(BLOBS); do \
 		$(INSTALL_DATA) $(SRC_PATH)/pc-bios/$$x "$(DESTDIR)$(qemu_datadir)"; \
 	done
 endif
+	for s in $(ICON_SIZES); do \
+		mkdir -p "$(DESTDIR)/$(qemu_icondir)/hicolor/$${s}/apps"; \
+		$(INSTALL_DATA) $(SRC_PATH)/ui/icons/qemu_$${s}.png \
+			"$(DESTDIR)/$(qemu_icondir)/hicolor/$${s}/apps/qemu.png"; \
+	done; \
+	mkdir -p "$(DESTDIR)/$(qemu_icondir)/hicolor/32x32/apps"; \
+	$(INSTALL_DATA) $(SRC_PATH)/ui/icons/qemu_32x32.bmp \
+		"$(DESTDIR)/$(qemu_icondir)/hicolor/32x32/apps/qemu.bmp"; \
+	mkdir -p "$(DESTDIR)/$(qemu_icondir)/hicolor/scalable/apps"; \
+	$(INSTALL_DATA) $(SRC_PATH)/ui/icons/qemu.svg \
+		"$(DESTDIR)/$(qemu_icondir)/hicolor/scalable/apps/qemu.svg"
+	mkdir -p "$(DESTDIR)/$(qemu_desktopdir)"
+	$(INSTALL_DATA) $(SRC_PATH)/ui/qemu.desktop \
+		"$(DESTDIR)/$(qemu_desktopdir)/qemu.desktop"
 ifdef CONFIG_GTK
 	$(MAKE) -C po $@
 endif
@@ -978,6 +861,7 @@ qemu-nbd.8: qemu-nbd.texi qemu-option-trace.texi
 qemu-ga.8: qemu-ga.texi
 docs/qemu-block-drivers.7: docs/qemu-block-drivers.texi
 docs/qemu-cpu-models.7: docs/qemu-cpu-models.texi
+scripts/qemu-trace-stap.1: scripts/qemu-trace-stap.texi
 
 html: qemu-doc.html docs/interop/qemu-qmp-ref.html docs/interop/qemu-ga-ref.html
 info: qemu-doc.info docs/interop/qemu-qmp-ref.info docs/interop/qemu-ga-ref.info
@@ -999,6 +883,8 @@ docs/interop/qemu-qmp-ref.dvi docs/interop/qemu-qmp-ref.html \
     docs/interop/qemu-qmp-ref.info docs/interop/qemu-qmp-ref.pdf \
     docs/interop/qemu-qmp-ref.txt docs/interop/qemu-qmp-ref.7: \
 	docs/interop/qemu-qmp-ref.texi docs/interop/qemu-qmp-qapi.texi
+
+$(filter %.1 %.7 %.8,$(DOCS)): scripts/texi2pod.pl
 
 # Reports/Analysis
 

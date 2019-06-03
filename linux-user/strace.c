@@ -647,11 +647,11 @@ print_execve(const struct syscallname *name,
     for (arg_ptr_addr = arg2; ; arg_ptr_addr += sizeof(abi_ulong)) {
         abi_ulong *arg_ptr, arg_addr;
 
-	arg_ptr = lock_user(VERIFY_READ, arg_ptr_addr, sizeof(abi_ulong), 1);
+        arg_ptr = lock_user(VERIFY_READ, arg_ptr_addr, sizeof(abi_ulong), 1);
         if (!arg_ptr)
             return;
     arg_addr = tswapal(*arg_ptr);
-	unlock_user(arg_ptr, arg_ptr_addr, 0);
+        unlock_user(arg_ptr, arg_ptr_addr, 0);
         if (!arg_addr)
             break;
         if ((s = lock_user_string(arg_addr))) {
@@ -1741,6 +1741,9 @@ print_optint:
             break;
         case TARGET_SO_REUSEADDR:
             gemu_log("SO_REUSEADDR,");
+            goto print_optint;
+        case TARGET_SO_REUSEPORT:
+            gemu_log("SO_REUSEPORT,");
             goto print_optint;
         case TARGET_SO_TYPE:
             gemu_log("SO_TYPE,");

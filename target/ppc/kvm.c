@@ -36,7 +36,6 @@
 
 #include "hw/sysbus.h"
 #include "hw/ppc/spapr.h"
-#include "hw/ppc/spapr_vio.h"
 #include "hw/ppc/spapr_cpu_core.h"
 #include "hw/ppc/ppc.h"
 #include "sysemu/watchdog.h"
@@ -91,6 +90,7 @@ static int cap_ppc_pvr_compat;
 static int cap_ppc_safe_cache;
 static int cap_ppc_safe_bounds_check;
 static int cap_ppc_safe_indirect_branch;
+static int cap_ppc_nested_kvm_hv;
 
 static uint32_t debug_inst_opcode;
 
@@ -150,6 +150,7 @@ int kvm_arch_init(MachineState *ms, KVMState *s)
     cap_mmu_hash_v3 = kvm_vm_check_extension(s, KVM_CAP_PPC_MMU_HASH_V3);
     cap_resize_hpt = kvm_vm_check_extension(s, KVM_CAP_SPAPR_RESIZE_HPT);
     kvmppc_get_cpu_characteristics(s);
+    cap_ppc_nested_kvm_hv = kvm_vm_check_extension(s, KVM_CAP_PPC_NESTED_HV);
     /*
      * Note: setting it to false because there is not such capability
      * in KVM at this moment.
@@ -627,13 +628,15 @@ static int kvm_put_fp(CPUState *cs)
 
         for (i = 0; i < 32; i++) {
             uint64_t vsr[2];
+            uint64_t *fpr = cpu_fpr_ptr(&cpu->env, i);
+            uint64_t *vsrl = cpu_vsrl_ptr(&cpu->env, i);
 
 #ifdef HOST_WORDS_BIGENDIAN
-            vsr[0] = float64_val(env->fpr[i]);
-            vsr[1] = env->vsr[i];
+            vsr[0] = float64_val(*fpr);
+            vsr[1] = *vsrl;
 #else
-            vsr[0] = env->vsr[i];
-            vsr[1] = float64_val(env->fpr[i]);
+            vsr[0] = *vsrl;
+            vsr[1] = float64_val(*fpr);
 #endif
             reg.addr = (uintptr_t) &vsr;
             reg.id = vsx ? KVM_REG_PPC_VSR(i) : KVM_REG_PPC_FPR(i);
@@ -658,7 +661,7 @@ static int kvm_put_fp(CPUState *cs)
 
         for (i = 0; i < 32; i++) {
             reg.id = KVM_REG_PPC_VR(i);
-            reg.addr = (uintptr_t)&env->avr[i];
+            reg.addr = (uintptr_t)cpu_avr_ptr(env, i);
             ret = kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg);
             if (ret < 0) {
                 DPRINTF("Unable to set VR%d to KVM: %s\n", i, strerror(errno));
@@ -694,6 +697,8 @@ static int kvm_get_fp(CPUState *cs)
 
         for (i = 0; i < 32; i++) {
             uint64_t vsr[2];
+            uint64_t *fpr = cpu_fpr_ptr(&cpu->env, i);
+            uint64_t *vsrl = cpu_vsrl_ptr(&cpu->env, i);
 
             reg.addr = (uintptr_t) &vsr;
             reg.id = vsx ? KVM_REG_PPC_VSR(i) : KVM_REG_PPC_FPR(i);
@@ -705,14 +710,14 @@ static int kvm_get_fp(CPUState *cs)
                 return ret;
             } else {
 #ifdef HOST_WORDS_BIGENDIAN
-                env->fpr[i] = vsr[0];
+                *fpr = vsr[0];
                 if (vsx) {
-                    env->vsr[i] = vsr[1];
+                    *vsrl = vsr[1];
                 }
 #else
-                env->fpr[i] = vsr[1];
+                *fpr = vsr[1];
                 if (vsx) {
-                    env->vsr[i] = vsr[0];
+                    *vsrl = vsr[0];
                 }
 #endif
             }
@@ -730,7 +735,7 @@ static int kvm_get_fp(CPUState *cs)
 
         for (i = 0; i < 32; i++) {
             reg.id = KVM_REG_PPC_VR(i);
-            reg.addr = (uintptr_t)&env->avr[i];
+            reg.addr = (uintptr_t)cpu_avr_ptr(env, i);
             ret = kvm_vcpu_ioctl(cs, KVM_GET_ONE_REG, &reg);
             if (ret < 0) {
                 DPRINTF("Unable to get VR%d from KVM: %s\n",
@@ -2420,6 +2425,16 @@ int kvmppc_get_cap_safe_bounds_check(void)
 int kvmppc_get_cap_safe_indirect_branch(void)
 {
     return cap_ppc_safe_indirect_branch;
+}
+
+bool kvmppc_has_cap_nested_kvm_hv(void)
+{
+    return !!cap_ppc_nested_kvm_hv;
+}
+
+int kvmppc_set_cap_nested_kvm_hv(int enable)
+{
+    return kvm_vm_enable_cap(kvm_state, KVM_CAP_PPC_NESTED_HV, 0, enable);
 }
 
 bool kvmppc_has_cap_spapr_vfio(void)

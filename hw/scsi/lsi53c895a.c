@@ -298,6 +298,18 @@ static inline int lsi_irq_on_rsl(LSIState *s)
     return (s->sien0 & LSI_SIST0_RSL) && (s->scid & LSI_SCID_RRE);
 }
 
+static lsi_request *get_pending_req(LSIState *s)
+{
+    lsi_request *p;
+
+    QTAILQ_FOREACH(p, &s->queue, next) {
+        if (p->pending) {
+            return p;
+        }
+    }
+    return NULL;
+}
+
 static void lsi_soft_reset(LSIState *s)
 {
     trace_lsi_reset();
@@ -446,7 +458,6 @@ static void lsi_update_irq(LSIState *s)
 {
     int level;
     static int last_level;
-    lsi_request *p;
 
     /* It's unclear whether the DIP/SIP bits should be cleared when the
        Interrupt Status Registers are cleared or when istat0 is read.
@@ -476,13 +487,13 @@ static void lsi_update_irq(LSIState *s)
     }
     lsi_set_irq(s, level);
 
-    if (!level && lsi_irq_on_rsl(s) && !(s->scntl1 & LSI_SCNTL1_CON)) {
+    if (!s->current && !level && lsi_irq_on_rsl(s) && !(s->scntl1 & LSI_SCNTL1_CON)) {
+        lsi_request *p;
+
         trace_lsi_update_irq_disconnected();
-        QTAILQ_FOREACH(p, &s->queue, next) {
-            if (p->pending) {
-                lsi_reselect(s, p);
-                break;
-            }
+        p = get_pending_req(s);
+        if (p) {
+            lsi_reselect(s, p);
         }
     }
 }
@@ -861,10 +872,11 @@ static void lsi_do_status(LSIState *s)
 
 static void lsi_do_msgin(LSIState *s)
 {
-    int len;
+    uint8_t len;
     trace_lsi_do_msgin(s->dbc, s->msg_len);
     s->sfbr = s->msg[0];
     len = s->msg_len;
+    assert(len > 0 && len <= LSI_MAX_MSGIN_LEN);
     if (len > s->dbc)
         len = s->dbc;
     pci_dma_write(PCI_DEVICE(s), s->dnad, s->msg, len);
@@ -1064,11 +1076,12 @@ static void lsi_wait_reselect(LSIState *s)
 
     trace_lsi_wait_reselect();
 
-    QTAILQ_FOREACH(p, &s->queue, next) {
-        if (p->pending) {
-            lsi_reselect(s, p);
-            break;
-        }
+    if (s->current) {
+        return;
+    }
+    p = get_pending_req(s);
+    if (p) {
+        lsi_reselect(s, p);
     }
     if (s->current == NULL) {
         s->waiting = 1;
@@ -1258,6 +1271,18 @@ again:
             case 1: /* Disconnect */
                 trace_lsi_execute_script_io_disconnect();
                 s->scntl1 &= ~LSI_SCNTL1_CON;
+                /* FIXME: this is not entirely correct; the target need not ask
+                 * for reselection until it has to send data, while here we force a
+                 * reselection as soon as the bus is free.  The correct flow would
+                 * reselect before lsi_transfer_data and disconnect as soon as
+                 * DMA ends.
+                 */
+                if (!s->current) {
+                    lsi_request *p = get_pending_req(s);
+                    if (p) {
+                        lsi_reselect(s, p);
+                    }
+                }
                 break;
             case 2: /* Wait Reselect */
                 if (!lsi_irq_on_rsl(s)) {
@@ -1705,8 +1730,10 @@ static uint8_t lsi_reg_readb(LSIState *s, int offset)
         break;
     case 0x58: /* SBDL */
         /* Some drivers peek at the data bus during the MSG IN phase.  */
-        if ((s->sstat1 & PHASE_MASK) == PHASE_MI)
+        if ((s->sstat1 & PHASE_MASK) == PHASE_MI) {
+            assert(s->msg_len > 0);
             return s->msg[0];
+        }
         ret = 0;
         break;
     case 0x59: /* SBDL high */
@@ -1823,7 +1850,7 @@ static void lsi_reg_writeb(LSIState *s, int offset, uint8_t val)
         break;
     case 0x0a: case 0x0b:
         /* Openserver writes to these readonly registers on startup */
-	return;
+        return;
     case 0x0c: case 0x0d: case 0x0e: case 0x0f:
         /* Linux writes to these readonly registers on startup.  */
         return;
@@ -1857,8 +1884,8 @@ static void lsi_reg_writeb(LSIState *s, int offset, uint8_t val)
         /* nothing to do */
         break;
     case 0x1a: /* CTEST2 */
-	s->ctest2 = val & LSI_CTEST2_PCICIE;
-	break;
+        s->ctest2 = val & LSI_CTEST2_PCICIE;
+        break;
     case 0x1b: /* CTEST3 */
         s->ctest3 = val & 0x0f;
         break;
@@ -2103,11 +2130,23 @@ static int lsi_pre_save(void *opaque)
     return 0;
 }
 
+static int lsi_post_load(void *opaque, int version_id)
+{
+    LSIState *s = opaque;
+
+    if (s->msg_len < 0 || s->msg_len > LSI_MAX_MSGIN_LEN) {
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
 static const VMStateDescription vmstate_lsi_scsi = {
     .name = "lsiscsi",
     .version_id = 0,
     .minimum_version_id = 0,
     .pre_save = lsi_pre_save,
+    .post_load = lsi_post_load,
     .fields = (VMStateField[]) {
         VMSTATE_PCI_DEVICE(parent_obj, LSIState),
 

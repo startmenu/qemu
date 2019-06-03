@@ -560,6 +560,15 @@ enum {
     ARM_HWCAP_A64_ASIMDDP       = 1 << 20,
     ARM_HWCAP_A64_SHA512        = 1 << 21,
     ARM_HWCAP_A64_SVE           = 1 << 22,
+    ARM_HWCAP_A64_ASIMDFHM      = 1 << 23,
+    ARM_HWCAP_A64_DIT           = 1 << 24,
+    ARM_HWCAP_A64_USCAT         = 1 << 25,
+    ARM_HWCAP_A64_ILRCPC        = 1 << 26,
+    ARM_HWCAP_A64_FLAGM         = 1 << 27,
+    ARM_HWCAP_A64_SSBS          = 1 << 28,
+    ARM_HWCAP_A64_SB            = 1 << 29,
+    ARM_HWCAP_A64_PACA          = 1 << 30,
+    ARM_HWCAP_A64_PACG          = 1UL << 31,
 };
 
 #define ELF_HWCAP get_elf_hwcap()
@@ -591,6 +600,7 @@ static uint32_t get_elf_hwcap(void)
     GET_FEATURE_ID(aa64_dp, ARM_HWCAP_A64_ASIMDDP);
     GET_FEATURE_ID(aa64_fcma, ARM_HWCAP_A64_FCMA);
     GET_FEATURE_ID(aa64_sve, ARM_HWCAP_A64_SVE);
+    GET_FEATURE_ID(aa64_pauth, ARM_HWCAP_A64_PACA | ARM_HWCAP_A64_PACG);
 
 #undef GET_FEATURE_ID
 
@@ -1517,11 +1527,25 @@ static void bswap_sym(struct elf_sym *sym)
     bswaptls(&sym->st_size);
     bswap16s(&sym->st_shndx);
 }
+
+#ifdef TARGET_MIPS
+static void bswap_mips_abiflags(Mips_elf_abiflags_v0 *abiflags)
+{
+    bswap16s(&abiflags->version);
+    bswap32s(&abiflags->ases);
+    bswap32s(&abiflags->isa_ext);
+    bswap32s(&abiflags->flags1);
+    bswap32s(&abiflags->flags2);
+}
+#endif
 #else
 static inline void bswap_ehdr(struct elfhdr *ehdr) { }
 static inline void bswap_phdr(struct elf_phdr *phdr, int phnum) { }
 static inline void bswap_shdr(struct elf_shdr *shdr, int shnum) { }
 static inline void bswap_sym(struct elf_sym *sym) { }
+#ifdef TARGET_MIPS
+static inline void bswap_mips_abiflags(Mips_elf_abiflags_v0 *abiflags) { }
+#endif
 #endif
 
 #ifdef USE_ELF_CORE_DUMP
@@ -2364,6 +2388,26 @@ static void load_elf_image(const char *image_name, int image_fd,
                 goto exit_errmsg;
             }
             *pinterp_name = interp_name;
+#ifdef TARGET_MIPS
+        } else if (eppnt->p_type == PT_MIPS_ABIFLAGS) {
+            Mips_elf_abiflags_v0 abiflags;
+            if (eppnt->p_filesz < sizeof(Mips_elf_abiflags_v0)) {
+                errmsg = "Invalid PT_MIPS_ABIFLAGS entry";
+                goto exit_errmsg;
+            }
+            if (eppnt->p_offset + eppnt->p_filesz <= BPRM_BUF_SIZE) {
+                memcpy(&abiflags, bprm_buf + eppnt->p_offset,
+                       sizeof(Mips_elf_abiflags_v0));
+            } else {
+                retval = pread(image_fd, &abiflags, sizeof(Mips_elf_abiflags_v0),
+                               eppnt->p_offset);
+                if (retval != sizeof(Mips_elf_abiflags_v0)) {
+                    goto exit_perror;
+                }
+            }
+            bswap_mips_abiflags(&abiflags);
+            info->fp_abi = abiflags.fp_abi;
+#endif
         }
     }
 
@@ -2675,6 +2719,9 @@ int load_elf_binary(struct linux_binprm *bprm, struct image_info *info)
             target_mmap(0, qemu_host_page_size, PROT_READ | PROT_EXEC,
                         MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
         }
+#ifdef TARGET_MIPS
+        info->interp_fp_abi = interp_info.fp_abi;
+#endif
     }
 
     bprm->p = create_elf_tables(bprm->p, bprm->argc, bprm->envc, &elf_ex,
@@ -2807,7 +2854,7 @@ struct elf_note_info {
     struct target_elf_prstatus *prstatus;  /* NT_PRSTATUS */
     struct target_elf_prpsinfo *psinfo;    /* NT_PRPSINFO */
 
-    QTAILQ_HEAD(thread_list_head, elf_thread_status) thread_list;
+    QTAILQ_HEAD(, elf_thread_status) thread_list;
 #if 0
     /*
      * Current version of ELF coredump doesn't support

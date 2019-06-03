@@ -438,15 +438,13 @@ static void process_incoming_migration_co(void *opaque)
         /* Make sure all file formats flush their mutable metadata */
         bdrv_invalidate_cache_all(&local_err);
         if (local_err) {
-            migrate_set_state(&mis->state, MIGRATION_STATUS_ACTIVE,
-                    MIGRATION_STATUS_FAILED);
             error_report_err(local_err);
-            exit(EXIT_FAILURE);
+            goto fail;
         }
 
         if (colo_init_ram_cache() < 0) {
             error_report("Init ram cache failed");
-            exit(EXIT_FAILURE);
+            goto fail;
         }
 
         qemu_thread_create(&mis->colo_incoming_thread, "COLO incoming",
@@ -461,20 +459,22 @@ static void process_incoming_migration_co(void *opaque)
     }
 
     if (ret < 0) {
-        Error *local_err = NULL;
-
-        migrate_set_state(&mis->state, MIGRATION_STATUS_ACTIVE,
-                          MIGRATION_STATUS_FAILED);
         error_report("load of migration failed: %s", strerror(-ret));
-        qemu_fclose(mis->from_src_file);
-        if (multifd_load_cleanup(&local_err) != 0) {
-            error_report_err(local_err);
-        }
-        exit(EXIT_FAILURE);
+        goto fail;
     }
     mis->bh = qemu_bh_new(process_incoming_migration_bh, mis);
     qemu_bh_schedule(mis->bh);
     mis->migration_incoming_co = NULL;
+    return;
+fail:
+    local_err = NULL;
+    migrate_set_state(&mis->state, MIGRATION_STATUS_ACTIVE,
+                      MIGRATION_STATUS_FAILED);
+    qemu_fclose(mis->from_src_file);
+    if (multifd_load_cleanup(&local_err) != 0) {
+        error_report_err(local_err);
+    }
+    exit(EXIT_FAILURE);
 }
 
 static void migration_incoming_setup(QEMUFile *f)
@@ -541,7 +541,7 @@ void migration_fd_process_incoming(QEMUFile *f)
     migration_incoming_process();
 }
 
-void migration_ioc_process_incoming(QIOChannel *ioc)
+void migration_ioc_process_incoming(QIOChannel *ioc, Error **errp)
 {
     MigrationIncomingState *mis = migration_incoming_get_current();
     bool start_migration;
@@ -563,9 +563,14 @@ void migration_ioc_process_incoming(QIOChannel *ioc)
          */
         start_migration = !migrate_use_multifd();
     } else {
+        Error *local_err = NULL;
         /* Multiple connections */
         assert(migrate_use_multifd());
-        start_migration = multifd_recv_new_channel(ioc);
+        start_migration = multifd_recv_new_channel(ioc, &local_err);
+        if (local_err) {
+            error_propagate(errp, local_err);
+            return;
+        }
     }
 
     if (start_migration) {
@@ -742,7 +747,7 @@ MigrationParameters *qmp_query_migrate_parameters(Error **errp)
  * Return true if we're already in the middle of a migration
  * (i.e. any of the active or setup states)
  */
-static bool migration_is_setup_or_active(int state)
+bool migration_is_setup_or_active(int state)
 {
     switch (state) {
     case MIGRATION_STATUS_ACTIVE:
@@ -777,6 +782,7 @@ static void populate_ram_info(MigrationInfo *info, MigrationState *s)
     info->ram->postcopy_requests = ram_counters.postcopy_requests;
     info->ram->page_size = qemu_target_page_size();
     info->ram->multifd_bytes = ram_counters.multifd_bytes;
+    info->ram->pages_per_second = s->pages_per_second;
 
     if (migrate_use_xbzrle()) {
         info->has_xbzrle_cache = true;
@@ -914,6 +920,15 @@ static bool migrate_caps_check(bool *cap_list,
         error_setg(errp, "QEMU compiled without old-style (blk/-b, inc/-i) "
                    "block migration");
         error_append_hint(errp, "Use drive_mirror+NBD instead.\n");
+        return false;
+    }
+#endif
+
+#ifndef CONFIG_REPLICATION
+    if (cap_list[MIGRATION_CAPABILITY_X_COLO]) {
+        error_setg(errp, "QEMU compiled without replication module"
+                   " can't enable COLO");
+        error_append_hint(errp, "Please enable replication before COLO.\n");
         return false;
     }
 #endif
@@ -1372,7 +1387,6 @@ static void migrate_fd_cleanup(void *opaque)
     qemu_savevm_state_cleanup();
 
     if (s->to_dst_file) {
-        Error *local_err = NULL;
         QEMUFile *tmp;
 
         trace_migrate_fd_cleanup();
@@ -1383,9 +1397,7 @@ static void migrate_fd_cleanup(void *opaque)
         }
         qemu_mutex_lock_iothread();
 
-        if (multifd_save_cleanup(&local_err) != 0) {
-            error_report_err(local_err);
-        }
+        multifd_save_cleanup();
         qemu_mutex_lock(&s->qemu_file_lock);
         tmp = s->to_dst_file;
         s->to_dst_file = NULL;
@@ -1554,6 +1566,7 @@ void migrate_init(MigrationState *s)
     s->rp_state.from_dst_file = NULL;
     s->rp_state.error = false;
     s->mbps = 0.0;
+    s->pages_per_second = 0.0;
     s->downtime = 0;
     s->expected_downtime = 0;
     s->setup_time = 0;
@@ -2399,7 +2412,7 @@ static int postcopy_start(MigrationState *ms)
     qemu_mutex_lock_iothread();
     trace_postcopy_start_set_run();
 
-    qemu_system_wakeup_request(QEMU_WAKEUP_REASON_OTHER);
+    qemu_system_wakeup_request(QEMU_WAKEUP_REASON_OTHER, NULL);
     global_state_store();
     ret = vm_stop_force_state(RUN_STATE_FINISH_MIGRATE);
     if (ret < 0) {
@@ -2603,7 +2616,7 @@ static void migration_completion(MigrationState *s)
     if (s->state == MIGRATION_STATUS_ACTIVE) {
         qemu_mutex_lock_iothread();
         s->downtime_start = qemu_clock_get_ms(QEMU_CLOCK_REALTIME);
-        qemu_system_wakeup_request(QEMU_WAKEUP_REASON_OTHER);
+        qemu_system_wakeup_request(QEMU_WAKEUP_REASON_OTHER, NULL);
         s->vm_was_running = runstate_is_running();
         ret = global_state_store();
 
@@ -2872,7 +2885,7 @@ static void migration_calculate_complete(MigrationState *s)
 static void migration_update_counters(MigrationState *s,
                                       int64_t current_time)
 {
-    uint64_t transferred, time_spent;
+    uint64_t transferred, transferred_pages, time_spent;
     uint64_t current_bytes; /* bytes transferred since the beginning */
     double bandwidth;
 
@@ -2889,6 +2902,11 @@ static void migration_update_counters(MigrationState *s,
     s->mbps = (((double) transferred * 8.0) /
                ((double) time_spent / 1000.0)) / 1000.0 / 1000.0;
 
+    transferred_pages = ram_get_total_transferred_pages() -
+                            s->iteration_initial_pages;
+    s->pages_per_second = (double) transferred_pages /
+                             (((double) time_spent / 1000.0));
+
     /*
      * if we haven't sent anything, we don't want to
      * recalculate. 10000 is a small enough number for our purposes
@@ -2901,6 +2919,7 @@ static void migration_update_counters(MigrationState *s,
 
     s->iteration_start_time = current_time;
     s->iteration_initial_bytes = current_bytes;
+    s->iteration_initial_pages = ram_get_total_transferred_pages();
 
     trace_migrate_transferred(transferred, time_spent,
                               bandwidth, s->threshold_size);
@@ -3305,6 +3324,7 @@ static void migration_instance_init(Object *obj)
 
     ms->state = MIGRATION_STATUS_NONE;
     ms->mbps = -1;
+    ms->pages_per_second = -1;
     qemu_sem_init(&ms->pause_sem, 0);
     qemu_mutex_init(&ms->error_mutex);
 

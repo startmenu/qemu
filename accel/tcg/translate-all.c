@@ -6,7 +6,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -16,11 +16,7 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
-#ifdef _WIN32
-#include <windows.h>
-#endif
 #include "qemu/osdep.h"
-
 
 #include "qemu-common.h"
 #define NO_CPU_IO_DEFS
@@ -1692,6 +1688,9 @@ TranslationBlock *tb_gen_code(CPUState *cpu,
         cflags |= CF_NOCACHE | 1;
     }
 
+    cflags &= ~CF_CLUSTER_MASK;
+    cflags |= cpu->cluster_index << CF_CLUSTER_SHIFT;
+
  buffer_overflow:
     tb = tb_alloc(pc);
     if (unlikely(!tb)) {
@@ -2290,7 +2289,7 @@ void dump_exec_info(FILE *f, fprintf_function cpu_fprintf)
 {
     struct tb_tree_stats tst = {};
     struct qht_stats hst;
-    size_t nb_tbs;
+    size_t nb_tbs, flush_full, flush_part, flush_elide;
 
     tcg_tb_foreach(tb_tree_stats_iter, &tst);
     nb_tbs = tst.nb_tbs;
@@ -2326,7 +2325,11 @@ void dump_exec_info(FILE *f, fprintf_function cpu_fprintf)
     cpu_fprintf(f, "TB flush count      %u\n",
                 atomic_read(&tb_ctx.tb_flush_count));
     cpu_fprintf(f, "TB invalidate count %zu\n", tcg_tb_phys_invalidate_count());
-    cpu_fprintf(f, "TLB flush count     %zu\n", tlb_flush_count());
+
+    tlb_flush_counts(&flush_full, &flush_part, &flush_elide);
+    cpu_fprintf(f, "TLB full flushes    %zu\n", flush_full);
+    cpu_fprintf(f, "TLB partial flushes %zu\n", flush_part);
+    cpu_fprintf(f, "TLB elided flushes  %zu\n", flush_elide);
     tcg_dump_info(f, cpu_fprintf);
 }
 

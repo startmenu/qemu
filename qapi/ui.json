@@ -598,7 +598,8 @@
 # Notes:  An empty password in this command will set the password to the empty
 #         string.  Existing clients are unaffected by executing this command.
 ##
-{ 'command': 'change-vnc-password', 'data': {'password': 'str'},
+{ 'command': 'change-vnc-password',
+  'data': { 'password': 'str' },
   'if': 'defined(CONFIG_VNC)' }
 
 ##
@@ -1015,6 +1016,16 @@
             '*head'  : 'int',
             'events' : [ 'InputEvent' ] } }
 
+##
+# @GrabToggleKeys:
+#
+# Keys to toggle input-linux between host and guest.
+#
+# Since: 4.0
+#
+##
+{ 'enum': 'GrabToggleKeys',
+  'data': [ 'ctrl-ctrl', 'alt-alt', 'meta-meta', 'scrolllock', 'ctrl-scrolllock' ] }
 
 ##
 # @DisplayGTK:
@@ -1036,6 +1047,20 @@
 { 'struct'  : 'DisplayGTK',
   'data'    : { '*grab-on-hover' : 'bool',
                 '*zoom-to-fit'   : 'bool'  } }
+
+##
+# @DisplayEGLHeadless:
+#
+# EGL headless display options.
+#
+# @rendernode: Which DRM render node should be used. Default is the first
+#              available node on the host.
+#
+# Since: 3.1
+#
+##
+{ 'struct'  : 'DisplayEGLHeadless',
+  'data'    : { '*rendernode' : 'str' } }
 
  ##
  # @DisplayGLMode:
@@ -1086,4 +1111,18 @@
                 '*window-close'  : 'bool',
                 '*gl'            : 'DisplayGLMode' },
   'discriminator' : 'type',
-  'data'    : { 'gtk'            : 'DisplayGTK' } }
+  'data'    : { 'gtk'            : 'DisplayGTK',
+                'egl-headless'   : 'DisplayEGLHeadless'} }
+
+##
+# @query-display-options:
+#
+# Returns information about display configuration
+#
+# Returns: @DisplayOptions
+#
+# Since: 3.1
+#
+##
+{ 'command': 'query-display-options',
+  'returns': 'DisplayOptions' }

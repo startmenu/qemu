@@ -601,10 +601,9 @@ static void spr_write_excp_vector(DisasContext *ctx, int sprn, int gprn)
 
 static inline void vscr_init(CPUPPCState *env, uint32_t val)
 {
-    env->vscr = val;
     /* Altivec always uses round-to-nearest */
     set_float_rounding_mode(float_round_nearest_even, &env->vec_status);
-    set_flush_to_zero(vscr_nj, &env->vec_status);
+    helper_mtvscr(env, val);
 }
 
 #ifdef CONFIG_USER_ONLY
@@ -1653,6 +1652,15 @@ static void spr_write_booke_pid(DisasContext *ctx, int sprn, int gprn)
     gen_helper_booke_setpid(cpu_env, t0, cpu_gpr[gprn]);
     tcg_temp_free_i32(t0);
 }
+static void spr_write_eplc(DisasContext *ctx, int sprn, int gprn)
+{
+    gen_helper_booke_set_eplc(cpu_env, cpu_gpr[gprn]);
+}
+static void spr_write_epsc(DisasContext *ctx, int sprn, int gprn)
+{
+    gen_helper_booke_set_epsc(cpu_env, cpu_gpr[gprn]);
+}
+
 #endif
 
 static void gen_spr_usprg3(CPUPPCState *env)
@@ -1912,6 +1920,16 @@ static void gen_spr_BookE206(CPUPPCState *env, uint32_t mas_mask,
                      &spr_read_generic, &spr_write_booke_pid,
                      0x00000000);
     }
+
+    spr_register(env, SPR_BOOKE_EPLC, "EPLC",
+                 SPR_NOACCESS, SPR_NOACCESS,
+                 &spr_read_generic, &spr_write_eplc,
+                 0x00000000);
+    spr_register(env, SPR_BOOKE_EPSC, "EPSC",
+                 SPR_NOACCESS, SPR_NOACCESS,
+                 &spr_read_generic, &spr_write_epsc,
+                 0x00000000);
+
     /* XXX : not implemented */
     spr_register(env, SPR_MMUCFG, "MMUCFG",
                  SPR_NOACCESS, SPR_NOACCESS,
@@ -2797,8 +2815,6 @@ static void gen_spr_8xx(CPUPPCState *env)
  * perf    => 768-783 (Power 2.04)
  * perf    => 784-799 (Power 2.04)
  * PPR     => SPR 896 (Power 2.04)
- * EPLC    => SPR 947 (Power 2.04 emb)
- * EPSC    => SPR 948 (Power 2.04 emb)
  * DABRX   => 1015    (Power 2.04 hypv)
  * FPECR   => SPR 1022 (?)
  * ... and more (thermal management, performance counters, ...)
@@ -4930,14 +4946,6 @@ static void init_proc_e500(CPUPPCState *env, int version)
     }
 
     if (version == fsl_e6500) {
-        spr_register(env, SPR_BOOKE_SPRG8, "SPRG8",
-                     SPR_NOACCESS, SPR_NOACCESS,
-                     &spr_read_generic, &spr_write_generic,
-                     0x00000000);
-        spr_register(env, SPR_BOOKE_SPRG9, "SPRG9",
-                     SPR_NOACCESS, SPR_NOACCESS,
-                     &spr_read_generic, &spr_write_generic,
-                     0x00000000);
         /* Thread identification */
         spr_register(env, SPR_TIR, "TIR",
                      SPR_NOACCESS, SPR_NOACCESS,
@@ -8197,11 +8205,11 @@ static void gen_spr_power9_mmu(CPUPPCState *env)
 {
 #if !defined(CONFIG_USER_ONLY)
     /* Partition Table Control */
-    spr_register_hv(env, SPR_PTCR, "PTCR",
-                    SPR_NOACCESS, SPR_NOACCESS,
-                    SPR_NOACCESS, SPR_NOACCESS,
-                    &spr_read_generic, &spr_write_ptcr,
-                    0x00000000);
+    spr_register_kvm_hv(env, SPR_PTCR, "PTCR",
+                        SPR_NOACCESS, SPR_NOACCESS,
+                        SPR_NOACCESS, SPR_NOACCESS,
+                        &spr_read_generic, &spr_write_ptcr,
+                        KVM_REG_PPC_PTCR, 0x00000000);
 #endif
 }
 
@@ -9064,13 +9072,13 @@ static void init_ppc_proc(PowerPCCPU *cpu)
             nb_tlb *= 2;
         switch (env->tlb_type) {
         case TLB_6XX:
-            env->tlb.tlb6 = g_malloc0(nb_tlb * sizeof(ppc6xx_tlb_t));
+            env->tlb.tlb6 = g_new0(ppc6xx_tlb_t, nb_tlb);
             break;
         case TLB_EMB:
-            env->tlb.tlbe = g_malloc0(nb_tlb * sizeof(ppcemb_tlb_t));
+            env->tlb.tlbe = g_new0(ppcemb_tlb_t, nb_tlb);
             break;
         case TLB_MAS:
-            env->tlb.tlbm = g_malloc0(nb_tlb * sizeof(ppcmas_tlb_t));
+            env->tlb.tlbm = g_new0(ppcmas_tlb_t, nb_tlb);
             break;
         }
         /* Pre-compute some useful values */
@@ -9469,7 +9477,7 @@ static bool avr_need_swap(CPUPPCState *env)
 static int gdb_get_float_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 {
     if (n < 32) {
-        stfq_p(mem_buf, env->fpr[n]);
+        stfq_p(mem_buf, *cpu_fpr_ptr(env, n));
         ppc_maybe_bswap_register(env, mem_buf, 8);
         return 8;
     }
@@ -9485,7 +9493,7 @@ static int gdb_set_float_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 {
     if (n < 32) {
         ppc_maybe_bswap_register(env, mem_buf, 8);
-        env->fpr[n] = ldfq_p(mem_buf);
+        *cpu_fpr_ptr(env, n) = ldfq_p(mem_buf);
         return 8;
     }
     if (n == 32) {
@@ -9499,19 +9507,20 @@ static int gdb_set_float_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 static int gdb_get_avr_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 {
     if (n < 32) {
+        ppc_avr_t *avr = cpu_avr_ptr(env, n);
         if (!avr_need_swap(env)) {
-            stq_p(mem_buf, env->avr[n].u64[0]);
-            stq_p(mem_buf+8, env->avr[n].u64[1]);
+            stq_p(mem_buf, avr->u64[0]);
+            stq_p(mem_buf + 8, avr->u64[1]);
         } else {
-            stq_p(mem_buf, env->avr[n].u64[1]);
-            stq_p(mem_buf+8, env->avr[n].u64[0]);
+            stq_p(mem_buf, avr->u64[1]);
+            stq_p(mem_buf + 8, avr->u64[0]);
         }
         ppc_maybe_bswap_register(env, mem_buf, 8);
         ppc_maybe_bswap_register(env, mem_buf + 8, 8);
         return 16;
     }
     if (n == 32) {
-        stl_p(mem_buf, env->vscr);
+        stl_p(mem_buf, helper_mfvscr(env));
         ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }
@@ -9526,20 +9535,21 @@ static int gdb_get_avr_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 static int gdb_set_avr_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 {
     if (n < 32) {
+        ppc_avr_t *avr = cpu_avr_ptr(env, n);
         ppc_maybe_bswap_register(env, mem_buf, 8);
         ppc_maybe_bswap_register(env, mem_buf + 8, 8);
         if (!avr_need_swap(env)) {
-            env->avr[n].u64[0] = ldq_p(mem_buf);
-            env->avr[n].u64[1] = ldq_p(mem_buf+8);
+            avr->u64[0] = ldq_p(mem_buf);
+            avr->u64[1] = ldq_p(mem_buf + 8);
         } else {
-            env->avr[n].u64[1] = ldq_p(mem_buf);
-            env->avr[n].u64[0] = ldq_p(mem_buf+8);
+            avr->u64[1] = ldq_p(mem_buf);
+            avr->u64[0] = ldq_p(mem_buf + 8);
         }
         return 16;
     }
     if (n == 32) {
         ppc_maybe_bswap_register(env, mem_buf, 4);
-        env->vscr = ldl_p(mem_buf);
+        helper_mtvscr(env, ldl_p(mem_buf));
         return 4;
     }
     if (n == 33) {
@@ -9606,7 +9616,7 @@ static int gdb_set_spe_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 static int gdb_get_vsx_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 {
     if (n < 32) {
-        stq_p(mem_buf, env->vsr[n]);
+        stq_p(mem_buf, *cpu_vsrl_ptr(env, n));
         ppc_maybe_bswap_register(env, mem_buf, 8);
         return 8;
     }
@@ -9617,7 +9627,7 @@ static int gdb_set_vsx_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
 {
     if (n < 32) {
         ppc_maybe_bswap_register(env, mem_buf, 8);
-        env->vsr[n] = ldq_p(mem_buf);
+        *cpu_vsrl_ptr(env, n) = ldq_p(mem_buf);
         return 8;
     }
     return 0;

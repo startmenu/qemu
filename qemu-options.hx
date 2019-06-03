@@ -538,8 +538,8 @@ ETEXI
 DEF("name", HAS_ARG, QEMU_OPTION_name,
     "-name string1[,process=string2][,debug-threads=on|off]\n"
     "                set the name of the guest\n"
-    "                string1 sets the window title and string2 the process name (on Linux)\n"
-    "                When debug-threads is enabled, individual threads are given a separate name (on Linux)\n"
+    "                string1 sets the window title and string2 the process name\n"
+    "                When debug-threads is enabled, individual threads are given a separate name\n"
     "                NOTE: The thread names are for debugging and not a stable API.\n",
     QEMU_ARCH_ALL)
 STEXI
@@ -1019,7 +1019,7 @@ Define a new file system device. Valid options are:
 @table @option
 @item @var{fsdriver}
 This option specifies the fs driver backend to use.
-Currently "local", "handle" and "proxy" file system drivers are supported.
+Currently "local" and "proxy" file system drivers are supported.
 @item id=@var{id}
 Specifies identifier for this device
 @item path=@var{path}
@@ -1037,7 +1037,7 @@ hidden .virtfs_metadata directory. Directories exported by this security model c
 interact with other unix tools. "none" security model is same as
 passthrough except the sever won't report failures if it fails to
 set file attributes like ownership. Security model is mandatory
-only for local fsdriver. Other fsdrivers (like handle, proxy) don't take
+only for local fsdriver. Other fsdrivers (like proxy) don't take
 security model as a parameter.
 @item writeout=@var{writeout}
 This is an optional argument. The only supported value is "immediate".
@@ -1088,7 +1088,7 @@ The general form of a Virtual File system pass-through options are:
 @table @option
 @item @var{fsdriver}
 This option specifies the fs driver backend to use.
-Currently "local", "handle" and "proxy" file system drivers are supported.
+Currently "local" and "proxy" file system drivers are supported.
 @item id=@var{id}
 Specifies identifier for this device
 @item path=@var{path}
@@ -1106,7 +1106,7 @@ hidden .virtfs_metadata directory. Directories exported by this security model c
 interact with other unix tools. "none" security model is same as
 passthrough except the sever won't report failures if it fails to
 set file attributes like ownership. Security model is mandatory only
-for local fsdriver. Other fsdrivers (like handle, proxy) don't take security
+for local fsdriver. Other fsdrivers (like proxy) don't take security
 model as a parameter.
 @item writeout=@var{writeout}
 This is an optional argument. The only supported value is "immediate".
@@ -1216,7 +1216,8 @@ DEF("display", HAS_ARG, QEMU_OPTION_display,
     "-display gtk[,grab_on_hover=on|off][,gl=on|off]|\n"
     "-display vnc=<display>[,<optargs>]\n"
     "-display curses\n"
-    "-display none"
+    "-display none\n"
+    "-display egl-headless[,rendernode=<file>]"
     "                select display type\n"
     "The default display is equivalent to\n"
 #if defined(CONFIG_GTK)
@@ -1258,6 +1259,9 @@ menus and other UI elements to configure and control the VM during
 runtime.
 @item vnc
 Start a VNC server on display <arg>
+@item egl-headless
+Offload all OpenGL operations to a local DRI device. For any graphical display,
+this display needs to be paired with either VNC or SPICE displays.
 @end table
 ETEXI
 
@@ -1288,17 +1292,6 @@ output such as guest graphics, guest console, and the QEMU monitor in a
 window. With this option, QEMU can display the VGA output when in text
 mode using a curses/ncurses interface. Nothing is displayed in graphical
 mode.
-ETEXI
-
-DEF("no-frame", 0, QEMU_OPTION_no_frame,
-    "-no-frame       open SDL window without a frame and window decorations\n",
-    QEMU_ARCH_ALL)
-STEXI
-@item -no-frame
-@findex -no-frame
-Do not use decorations for SDL windows and start them using the whole
-available screen space. This makes the using QEMU in a dedicated desktop
-workspace more convenient.
 ETEXI
 
 DEF("alt-grab", 0, QEMU_OPTION_alt_grab,
@@ -2414,9 +2407,9 @@ DEF("chardev", HAS_ARG, QEMU_OPTION_chardev,
     "-chardev help\n"
     "-chardev null,id=id[,mux=on|off][,logfile=PATH][,logappend=on|off]\n"
     "-chardev socket,id=id[,host=host],port=port[,to=to][,ipv4][,ipv6][,nodelay][,reconnect=seconds]\n"
-    "         [,server][,nowait][,telnet][,reconnect=seconds][,mux=on|off]\n"
+    "         [,server][,nowait][,telnet][,websocket][,reconnect=seconds][,mux=on|off]\n"
     "         [,logfile=PATH][,logappend=on|off][,tls-creds=ID] (tcp)\n"
-    "-chardev socket,id=id,path=path[,server][,nowait][,telnet][,reconnect=seconds]\n"
+    "-chardev socket,id=id,path=path[,server][,nowait][,telnet][,websocket][,reconnect=seconds]\n"
     "         [,mux=on|off][,logfile=PATH][,logappend=on|off] (unix)\n"
     "-chardev udp,id=id[,host=host],port=port[,localaddr=localaddr]\n"
     "         [,localport=localport][,ipv4][,ipv6][,mux=on|off]\n"
@@ -2544,7 +2537,7 @@ The available backends are:
 A void device. This device will not emit any data, and will drop any data it
 receives. The null backend does not take any options.
 
-@item -chardev socket,id=@var{id}[,@var{TCP options} or @var{unix options}][,server][,nowait][,telnet][,reconnect=@var{seconds}][,tls-creds=@var{id}]
+@item -chardev socket,id=@var{id}[,@var{TCP options} or @var{unix options}][,server][,nowait][,telnet][,websocket][,reconnect=@var{seconds}][,tls-creds=@var{id}]
 
 Create a two-way stream socket, which can be either a TCP or a unix socket. A
 unix socket will be created if @option{path} is specified. Behaviour is
@@ -2557,6 +2550,9 @@ connect to a listening socket.
 
 @option{telnet} specifies that traffic on the socket should interpret telnet
 escape sequences.
+
+@option{websocket} specifies that the socket uses WebSocket protocol for
+communication.
 
 @option{reconnect} sets the timeout for reconnecting on non-server sockets when
 the remote end goes away.  qemu will delay this many seconds and then attempt
@@ -2768,6 +2764,10 @@ the first @code{-bt hci[...]} option is valid and defines the HCI's
 logic.  The Transport Layer is decided by the machine type.  Currently
 the machines @code{n800} and @code{n810} have one HCI and all other
 machines have none.
+
+Note: This option and the whole bluetooth subsystem is considered as deprecated.
+If you still use it, please send a mail to @email{qemu-devel@@nongnu.org} where
+you describe your usecase.
 
 @anchor{bt-hcis}
 The following three types are recognized:
@@ -3106,6 +3106,10 @@ MAGIC_SYSRQ sequence if you use a telnet that supports sending the break
 sequence.  Typically in unix telnet you do it with Control-] and then
 type "send break" followed by pressing the enter key.
 
+@item websocket:@var{host}:@var{port},server[,nowait][,nodelay]
+The WebSocket protocol is used instead of raw tcp socket. The port acts as
+a WebSocket server. Client mode is not supported.
+
 @item unix:@var{path}[,server][,nowait][,reconnect=@var{seconds}]
 A unix domain socket is used instead of a tcp socket.  The option works the
 same as if you had specified @code{-serial tcp} except the unix domain socket
@@ -3366,26 +3370,11 @@ Enable KVM full virtualization support. This option is only available
 if KVM support is enabled when compiling.
 ETEXI
 
-DEF("enable-hax", 0, QEMU_OPTION_enable_hax, \
-    "-enable-hax     enable HAX virtualization support\n", QEMU_ARCH_I386)
-STEXI
-@item -enable-hax
-@findex -enable-hax
-Enable HAX (Hardware-based Acceleration eXecution) support. This option
-is only available if HAX support is enabled when compiling. HAX is only
-applicable to MAC and Windows platform, and thus does not conflict with
-KVM. This option is deprecated, use @option{-accel hax} instead.
-ETEXI
-
 DEF("xen-domid", HAS_ARG, QEMU_OPTION_xen_domid,
     "-xen-domid id   specify xen guest domain id\n", QEMU_ARCH_ALL)
-DEF("xen-create", 0, QEMU_OPTION_xen_create,
-    "-xen-create     create domain using xen hypercalls, bypassing xend\n"
-    "                warning: should not be used when xend is in use\n",
-    QEMU_ARCH_ALL)
 DEF("xen-attach", 0, QEMU_OPTION_xen_attach,
     "-xen-attach     attach to existing xen domain\n"
-    "                xend will use this when starting QEMU\n",
+    "                libxl will use this when starting QEMU\n",
     QEMU_ARCH_ALL)
 DEF("xen-domid-restrict", 0, QEMU_OPTION_xen_domid_restrict,
     "-xen-domid-restrict     restrict set of available xen operations\n"
@@ -3396,14 +3385,10 @@ STEXI
 @item -xen-domid @var{id}
 @findex -xen-domid
 Specify xen guest domain @var{id} (XEN only).
-@item -xen-create
-@findex -xen-create
-Create domain using xen hypercalls, bypassing xend.
-Warning: should not be used when xend is in use (XEN only).
 @item -xen-attach
 @findex -xen-attach
 Attach to existing xen domain.
-xend will use this when starting QEMU (XEN only).
+libxl will use this when starting QEMU (XEN only).
 @findex -xen-domid-restrict
 Restrict set of available xen operations to specified domain id (XEN only).
 ETEXI
@@ -3618,16 +3603,6 @@ character to Control-t.
 @item -echr 0x14
 @itemx -echr 20
 @end table
-ETEXI
-
-DEF("virtioconsole", HAS_ARG, QEMU_OPTION_virtiocon, \
-    "-virtioconsole c\n" \
-    "                set virtio console\n", QEMU_ARCH_ALL)
-STEXI
-@item -virtioconsole @var{c}
-@findex -virtioconsole
-Set virtio console.
-This option is deprecated, please use @option{-device virtconsole} instead.
 ETEXI
 
 DEF("show-cursor", 0, QEMU_OPTION_show_cursor, \
@@ -4010,7 +3985,7 @@ Memory backend objects offer more control than the @option{-m} option that is
 traditionally used to define guest RAM. Please refer to
 @option{memory-backend-file} for a description of the options.
 
-@item -object memory-backend-memfd,id=@var{id},merge=@var{on|off},dump=@var{on|off},prealloc=@var{on|off},size=@var{size},host-nodes=@var{host-nodes},policy=@var{default|preferred|bind|interleave},seal=@var{on|off},hugetlb=@var{on|off},hugetlbsize=@var{size}
+@item -object memory-backend-memfd,id=@var{id},merge=@var{on|off},dump=@var{on|off},share=@var{on|off},prealloc=@var{on|off},size=@var{size},host-nodes=@var{host-nodes},policy=@var{default|preferred|bind|interleave},seal=@var{on|off},hugetlb=@var{on|off},hugetlbsize=@var{size}
 
 Creates an anonymous memory file backend object, which allows QEMU to
 share the memory with an external process (e.g. when using
@@ -4031,6 +4006,8 @@ with the @option{seal} option (requires at least Linux 4.16).
 
 Please refer to @option{memory-backend-file} for a description of the
 other options.
+
+The @option{share} boolean option is @var{on} by default with memfd.
 
 @item -object rng-random,id=@var{id},filename=@var{/dev/random}
 

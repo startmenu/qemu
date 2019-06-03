@@ -24,7 +24,9 @@
 #include "trace.h"
 #include "qemu/error-report.h"
 #include "migration/failover.h"
+#ifdef CONFIG_REPLICATION
 #include "replication.h"
+#endif
 #include "net/colo-compare.h"
 #include "net/colo.h"
 #include "block/block.h"
@@ -59,6 +61,8 @@ static bool colo_runstate_is_stopped(void)
 
 static void secondary_vm_do_failover(void)
 {
+/* COLO needs enable block-replication */
+#ifdef CONFIG_REPLICATION
     int old_state;
     MigrationIncomingState *mis = migration_incoming_get_current();
     Error *local_err = NULL;
@@ -121,10 +125,14 @@ static void secondary_vm_do_failover(void)
     if (mis->migration_incoming_co) {
         qemu_coroutine_enter(mis->migration_incoming_co);
     }
+#else
+    abort();
+#endif
 }
 
 static void primary_vm_do_failover(void)
 {
+#ifdef CONFIG_REPLICATION
     MigrationState *s = migrate_get_current();
     int old_state;
     Error *local_err = NULL;
@@ -165,6 +173,9 @@ static void primary_vm_do_failover(void)
 
     /* Notify COLO thread that failover work is finished */
     qemu_sem_post(&s->colo_exit_sem);
+#else
+    abort();
+#endif
 }
 
 COLOMode get_colo_mode(void)
@@ -192,11 +203,11 @@ void colo_do_failover(MigrationState *s)
     }
 }
 
+#ifdef CONFIG_REPLICATION
 void qmp_xen_set_replication(bool enable, bool primary,
                              bool has_failover, bool failover,
                              Error **errp)
 {
-#ifdef CONFIG_REPLICATION
     ReplicationMode mode = primary ?
                            REPLICATION_MODE_PRIMARY :
                            REPLICATION_MODE_SECONDARY;
@@ -215,14 +226,10 @@ void qmp_xen_set_replication(bool enable, bool primary,
         }
         replication_stop_all(failover, failover ? NULL : errp);
     }
-#else
-    abort();
-#endif
 }
 
 ReplicationStatus *qmp_query_xen_replication_status(Error **errp)
 {
-#ifdef CONFIG_REPLICATION
     Error *err = NULL;
     ReplicationStatus *s = g_new0(ReplicationStatus, 1);
 
@@ -237,19 +244,13 @@ ReplicationStatus *qmp_query_xen_replication_status(Error **errp)
 
     error_free(err);
     return s;
-#else
-    abort();
-#endif
 }
 
 void qmp_xen_colo_do_checkpoint(Error **errp)
 {
-#ifdef CONFIG_REPLICATION
     replication_do_checkpoint_all(errp);
-#else
-    abort();
-#endif
 }
+#endif
 
 COLOStatus *qmp_query_colo_status(Error **errp)
 {
@@ -415,11 +416,16 @@ static int colo_do_checkpoint_transaction(MigrationState *s,
     /* Disable block migration */
     migrate_set_block_enabled(false, &local_err);
     qemu_mutex_lock_iothread();
+
+#ifdef CONFIG_REPLICATION
     replication_do_checkpoint_all(&local_err);
     if (local_err) {
         qemu_mutex_unlock_iothread();
         goto out;
     }
+#else
+        abort();
+#endif
 
     colo_send_message(s->to_dst_file, COLO_MESSAGE_VMSTATE_SEND, &local_err);
     if (local_err) {
@@ -523,11 +529,15 @@ static void colo_process_checkpoint(MigrationState *s)
     object_unref(OBJECT(bioc));
 
     qemu_mutex_lock_iothread();
+#ifdef CONFIG_REPLICATION
     replication_start_all(REPLICATION_MODE_PRIMARY, &local_err);
     if (local_err) {
         qemu_mutex_unlock_iothread();
         goto out;
     }
+#else
+        abort();
+#endif
 
     vm_start();
     qemu_mutex_unlock_iothread();
@@ -690,11 +700,15 @@ void *colo_process_incoming_thread(void *opaque)
     object_unref(OBJECT(bioc));
 
     qemu_mutex_lock_iothread();
+#ifdef CONFIG_REPLICATION
     replication_start_all(REPLICATION_MODE_SECONDARY, &local_err);
     if (local_err) {
         qemu_mutex_unlock_iothread();
         goto out;
     }
+#else
+        abort();
+#endif
     vm_start();
     trace_colo_vm_state_change("stop", "run");
     qemu_mutex_unlock_iothread();
@@ -785,18 +799,22 @@ void *colo_process_incoming_thread(void *opaque)
             goto out;
         }
 
+#ifdef CONFIG_REPLICATION
         replication_get_error_all(&local_err);
         if (local_err) {
             qemu_mutex_unlock_iothread();
             goto out;
         }
+
         /* discard colo disk buffer */
         replication_do_checkpoint_all(&local_err);
         if (local_err) {
             qemu_mutex_unlock_iothread();
             goto out;
         }
-
+#else
+        abort();
+#endif
         /* Notify all filters of all NIC to do checkpoint */
         colo_notify_filters_event(COLO_EVENT_CHECKPOINT, &local_err);
 

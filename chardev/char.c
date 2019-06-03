@@ -193,6 +193,8 @@ void qemu_chr_be_update_read_handlers(Chardev *s,
 {
     ChardevClass *cc = CHARDEV_GET_CLASS(s);
 
+    assert(qemu_chr_has_feature(s, QEMU_CHAR_FEATURE_GCONTEXT)
+           || !context);
     s->gcontext = context;
     if (cc->chr_update_read_handler) {
         cc->chr_update_read_handler(s);
@@ -240,6 +242,15 @@ static void char_init(Object *obj)
 
     chr->logfd = -1;
     qemu_mutex_init(&chr->chr_write_lock);
+
+    /*
+     * Assume if chr_update_read_handler is implemented it will
+     * take the updated gcontext into account.
+     */
+    if (CHARDEV_GET_CLASS(chr)->chr_update_read_handler) {
+        qemu_chr_set_feature(chr, QEMU_CHAR_FEATURE_GCONTEXT);
+    }
+
 }
 
 static int null_chr_write(Chardev *chr, const uint8_t *buf, int len)
@@ -409,7 +420,8 @@ QemuOpts *qemu_chr_parse_compat(const char *label, const char *filename,
     }
     if (strstart(filename, "tcp:", &p) ||
         strstart(filename, "telnet:", &p) ||
-        strstart(filename, "tn3270:", &p)) {
+        strstart(filename, "tn3270:", &p) ||
+        strstart(filename, "websocket:", &p)) {
         if (sscanf(p, "%64[^:]:%32[^,]%n", host, port, &pos) < 2) {
             host[0] = 0;
             if (sscanf(p, ":%32[^,]%n", port, &pos) < 1)
@@ -429,6 +441,8 @@ QemuOpts *qemu_chr_parse_compat(const char *label, const char *filename,
             qemu_opt_set(opts, "telnet", "on", &error_abort);
         } else if (strstart(filename, "tn3270:", &p)) {
             qemu_opt_set(opts, "tn3270", "on", &error_abort);
+        } else if (strstart(filename, "websocket:", &p)) {
+            qemu_opt_set(opts, "websocket", "on", &error_abort);
         }
         return opts;
     }
@@ -569,7 +583,7 @@ help_string_append(const char *name, void *opaque)
 {
     GString *str = opaque;
 
-    g_string_append_printf(str, "\n%s", name);
+    g_string_append_printf(str, "\n  %s", name);
 }
 
 static const char *chardev_alias_translate(const char *name)
@@ -860,6 +874,9 @@ QemuOptsList qemu_chardev_opts = {
         },{
             .name = "tls-creds",
             .type = QEMU_OPT_STRING,
+        },{
+            .name = "websocket",
+            .type = QEMU_OPT_BOOL,
         },{
             .name = "width",
             .type = QEMU_OPT_NUMBER,

@@ -6,7 +6,7 @@
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * version 2.1 of the License, or (at your option) any later version.
  *
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -74,11 +74,176 @@ QEMU_BUILD_BUG_ON(sizeof(target_ulong) > sizeof(run_on_cpu_data));
 QEMU_BUILD_BUG_ON(NB_MMU_MODES > 16);
 #define ALL_MMUIDX_BITS ((1 << NB_MMU_MODES) - 1)
 
+static inline size_t sizeof_tlb(CPUArchState *env, uintptr_t mmu_idx)
+{
+    return env->tlb_mask[mmu_idx] + (1 << CPU_TLB_ENTRY_BITS);
+}
+
+static void tlb_window_reset(CPUTLBWindow *window, int64_t ns,
+                             size_t max_entries)
+{
+    window->begin_ns = ns;
+    window->max_entries = max_entries;
+}
+
+static void tlb_dyn_init(CPUArchState *env)
+{
+    int i;
+
+    for (i = 0; i < NB_MMU_MODES; i++) {
+        CPUTLBDesc *desc = &env->tlb_d[i];
+        size_t n_entries = 1 << CPU_TLB_DYN_DEFAULT_BITS;
+
+        tlb_window_reset(&desc->window, get_clock_realtime(), 0);
+        desc->n_used_entries = 0;
+        env->tlb_mask[i] = (n_entries - 1) << CPU_TLB_ENTRY_BITS;
+        env->tlb_table[i] = g_new(CPUTLBEntry, n_entries);
+        env->iotlb[i] = g_new(CPUIOTLBEntry, n_entries);
+    }
+}
+
+/**
+ * tlb_mmu_resize_locked() - perform TLB resize bookkeeping; resize if necessary
+ * @env: CPU that owns the TLB
+ * @mmu_idx: MMU index of the TLB
+ *
+ * Called with tlb_lock_held.
+ *
+ * We have two main constraints when resizing a TLB: (1) we only resize it
+ * on a TLB flush (otherwise we'd have to take a perf hit by either rehashing
+ * the array or unnecessarily flushing it), which means we do not control how
+ * frequently the resizing can occur; (2) we don't have access to the guest's
+ * future scheduling decisions, and therefore have to decide the magnitude of
+ * the resize based on past observations.
+ *
+ * In general, a memory-hungry process can benefit greatly from an appropriately
+ * sized TLB, since a guest TLB miss is very expensive. This doesn't mean that
+ * we just have to make the TLB as large as possible; while an oversized TLB
+ * results in minimal TLB miss rates, it also takes longer to be flushed
+ * (flushes can be _very_ frequent), and the reduced locality can also hurt
+ * performance.
+ *
+ * To achieve near-optimal performance for all kinds of workloads, we:
+ *
+ * 1. Aggressively increase the size of the TLB when the use rate of the
+ * TLB being flushed is high, since it is likely that in the near future this
+ * memory-hungry process will execute again, and its memory hungriness will
+ * probably be similar.
+ *
+ * 2. Slowly reduce the size of the TLB as the use rate declines over a
+ * reasonably large time window. The rationale is that if in such a time window
+ * we have not observed a high TLB use rate, it is likely that we won't observe
+ * it in the near future. In that case, once a time window expires we downsize
+ * the TLB to match the maximum use rate observed in the window.
+ *
+ * 3. Try to keep the maximum use rate in a time window in the 30-70% range,
+ * since in that range performance is likely near-optimal. Recall that the TLB
+ * is direct mapped, so we want the use rate to be low (or at least not too
+ * high), since otherwise we are likely to have a significant amount of
+ * conflict misses.
+ */
+static void tlb_mmu_resize_locked(CPUArchState *env, int mmu_idx)
+{
+    CPUTLBDesc *desc = &env->tlb_d[mmu_idx];
+    size_t old_size = tlb_n_entries(env, mmu_idx);
+    size_t rate;
+    size_t new_size = old_size;
+    int64_t now = get_clock_realtime();
+    int64_t window_len_ms = 100;
+    int64_t window_len_ns = window_len_ms * 1000 * 1000;
+    bool window_expired = now > desc->window.begin_ns + window_len_ns;
+
+    if (desc->n_used_entries > desc->window.max_entries) {
+        desc->window.max_entries = desc->n_used_entries;
+    }
+    rate = desc->window.max_entries * 100 / old_size;
+
+    if (rate > 70) {
+        new_size = MIN(old_size << 1, 1 << CPU_TLB_DYN_MAX_BITS);
+    } else if (rate < 30 && window_expired) {
+        size_t ceil = pow2ceil(desc->window.max_entries);
+        size_t expected_rate = desc->window.max_entries * 100 / ceil;
+
+        /*
+         * Avoid undersizing when the max number of entries seen is just below
+         * a pow2. For instance, if max_entries == 1025, the expected use rate
+         * would be 1025/2048==50%. However, if max_entries == 1023, we'd get
+         * 1023/1024==99.9% use rate, so we'd likely end up doubling the size
+         * later. Thus, make sure that the expected use rate remains below 70%.
+         * (and since we double the size, that means the lowest rate we'd
+         * expect to get is 35%, which is still in the 30-70% range where
+         * we consider that the size is appropriate.)
+         */
+        if (expected_rate > 70) {
+            ceil *= 2;
+        }
+        new_size = MAX(ceil, 1 << CPU_TLB_DYN_MIN_BITS);
+    }
+
+    if (new_size == old_size) {
+        if (window_expired) {
+            tlb_window_reset(&desc->window, now, desc->n_used_entries);
+        }
+        return;
+    }
+
+    g_free(env->tlb_table[mmu_idx]);
+    g_free(env->iotlb[mmu_idx]);
+
+    tlb_window_reset(&desc->window, now, 0);
+    /* desc->n_used_entries is cleared by the caller */
+    env->tlb_mask[mmu_idx] = (new_size - 1) << CPU_TLB_ENTRY_BITS;
+    env->tlb_table[mmu_idx] = g_try_new(CPUTLBEntry, new_size);
+    env->iotlb[mmu_idx] = g_try_new(CPUIOTLBEntry, new_size);
+    /*
+     * If the allocations fail, try smaller sizes. We just freed some
+     * memory, so going back to half of new_size has a good chance of working.
+     * Increased memory pressure elsewhere in the system might cause the
+     * allocations to fail though, so we progressively reduce the allocation
+     * size, aborting if we cannot even allocate the smallest TLB we support.
+     */
+    while (env->tlb_table[mmu_idx] == NULL || env->iotlb[mmu_idx] == NULL) {
+        if (new_size == (1 << CPU_TLB_DYN_MIN_BITS)) {
+            error_report("%s: %s", __func__, strerror(errno));
+            abort();
+        }
+        new_size = MAX(new_size >> 1, 1 << CPU_TLB_DYN_MIN_BITS);
+        env->tlb_mask[mmu_idx] = (new_size - 1) << CPU_TLB_ENTRY_BITS;
+
+        g_free(env->tlb_table[mmu_idx]);
+        g_free(env->iotlb[mmu_idx]);
+        env->tlb_table[mmu_idx] = g_try_new(CPUTLBEntry, new_size);
+        env->iotlb[mmu_idx] = g_try_new(CPUIOTLBEntry, new_size);
+    }
+}
+
+static inline void tlb_table_flush_by_mmuidx(CPUArchState *env, int mmu_idx)
+{
+    tlb_mmu_resize_locked(env, mmu_idx);
+    memset(env->tlb_table[mmu_idx], -1, sizeof_tlb(env, mmu_idx));
+    env->tlb_d[mmu_idx].n_used_entries = 0;
+}
+
+static inline void tlb_n_used_entries_inc(CPUArchState *env, uintptr_t mmu_idx)
+{
+    env->tlb_d[mmu_idx].n_used_entries++;
+}
+
+static inline void tlb_n_used_entries_dec(CPUArchState *env, uintptr_t mmu_idx)
+{
+    env->tlb_d[mmu_idx].n_used_entries--;
+}
+
 void tlb_init(CPUState *cpu)
 {
     CPUArchState *env = cpu->env_ptr;
 
-    qemu_spin_init(&env->tlb_lock);
+    qemu_spin_init(&env->tlb_c.lock);
+
+    /* Ensure that cpu_reset performs a full flush.  */
+    env->tlb_c.dirty = ALL_MMUIDX_BITS;
+
+    tlb_dyn_init(env);
 }
 
 /* flush_all_helper: run fn across all cpus
@@ -100,137 +265,87 @@ static void flush_all_helper(CPUState *src, run_on_cpu_func fn,
     }
 }
 
-size_t tlb_flush_count(void)
+void tlb_flush_counts(size_t *pfull, size_t *ppart, size_t *pelide)
 {
     CPUState *cpu;
-    size_t count = 0;
+    size_t full = 0, part = 0, elide = 0;
 
     CPU_FOREACH(cpu) {
         CPUArchState *env = cpu->env_ptr;
 
-        count += atomic_read(&env->tlb_flush_count);
+        full += atomic_read(&env->tlb_c.full_flush_count);
+        part += atomic_read(&env->tlb_c.part_flush_count);
+        elide += atomic_read(&env->tlb_c.elide_flush_count);
     }
-    return count;
+    *pfull = full;
+    *ppart = part;
+    *pelide = elide;
 }
 
-/* This is OK because CPU architectures generally permit an
- * implementation to drop entries from the TLB at any time, so
- * flushing more entries than required is only an efficiency issue,
- * not a correctness issue.
- */
-static void tlb_flush_nocheck(CPUState *cpu)
+static void tlb_flush_one_mmuidx_locked(CPUArchState *env, int mmu_idx)
 {
-    CPUArchState *env = cpu->env_ptr;
-
-    /* The QOM tests will trigger tlb_flushes without setting up TCG
-     * so we bug out here in that case.
-     */
-    if (!tcg_enabled()) {
-        return;
-    }
-
-    assert_cpu_is_self(cpu);
-    atomic_set(&env->tlb_flush_count, env->tlb_flush_count + 1);
-    tlb_debug("(count: %zu)\n", tlb_flush_count());
-
-    /*
-     * tlb_table/tlb_v_table updates from any thread must hold tlb_lock.
-     * However, updates from the owner thread (as is the case here; see the
-     * above assert_cpu_is_self) do not need atomic_set because all reads
-     * that do not hold the lock are performed by the same owner thread.
-     */
-    qemu_spin_lock(&env->tlb_lock);
-    memset(env->tlb_table, -1, sizeof(env->tlb_table));
-    memset(env->tlb_v_table, -1, sizeof(env->tlb_v_table));
-    qemu_spin_unlock(&env->tlb_lock);
-
-    cpu_tb_jmp_cache_clear(cpu);
-
-    env->vtlb_index = 0;
-    env->tlb_flush_addr = -1;
-    env->tlb_flush_mask = 0;
-
-    atomic_mb_set(&cpu->pending_tlb_flush, 0);
-}
-
-static void tlb_flush_global_async_work(CPUState *cpu, run_on_cpu_data data)
-{
-    tlb_flush_nocheck(cpu);
-}
-
-void tlb_flush(CPUState *cpu)
-{
-    if (cpu->created && !qemu_cpu_is_self(cpu)) {
-        if (atomic_mb_read(&cpu->pending_tlb_flush) != ALL_MMUIDX_BITS) {
-            atomic_mb_set(&cpu->pending_tlb_flush, ALL_MMUIDX_BITS);
-            async_run_on_cpu(cpu, tlb_flush_global_async_work,
-                             RUN_ON_CPU_NULL);
-        }
-    } else {
-        tlb_flush_nocheck(cpu);
-    }
-}
-
-void tlb_flush_all_cpus(CPUState *src_cpu)
-{
-    const run_on_cpu_func fn = tlb_flush_global_async_work;
-    flush_all_helper(src_cpu, fn, RUN_ON_CPU_NULL);
-    fn(src_cpu, RUN_ON_CPU_NULL);
-}
-
-void tlb_flush_all_cpus_synced(CPUState *src_cpu)
-{
-    const run_on_cpu_func fn = tlb_flush_global_async_work;
-    flush_all_helper(src_cpu, fn, RUN_ON_CPU_NULL);
-    async_safe_run_on_cpu(src_cpu, fn, RUN_ON_CPU_NULL);
+    tlb_table_flush_by_mmuidx(env, mmu_idx);
+    memset(env->tlb_v_table[mmu_idx], -1, sizeof(env->tlb_v_table[0]));
+    env->tlb_d[mmu_idx].large_page_addr = -1;
+    env->tlb_d[mmu_idx].large_page_mask = -1;
+    env->tlb_d[mmu_idx].vindex = 0;
 }
 
 static void tlb_flush_by_mmuidx_async_work(CPUState *cpu, run_on_cpu_data data)
 {
     CPUArchState *env = cpu->env_ptr;
-    unsigned long mmu_idx_bitmask = data.host_int;
-    int mmu_idx;
+    uint16_t asked = data.host_int;
+    uint16_t all_dirty, work, to_clean;
 
     assert_cpu_is_self(cpu);
 
-    tlb_debug("start: mmu_idx:0x%04lx\n", mmu_idx_bitmask);
+    tlb_debug("mmu_idx:0x%04" PRIx16 "\n", asked);
 
-    qemu_spin_lock(&env->tlb_lock);
-    for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
+    qemu_spin_lock(&env->tlb_c.lock);
 
-        if (test_bit(mmu_idx, &mmu_idx_bitmask)) {
-            tlb_debug("%d\n", mmu_idx);
+    all_dirty = env->tlb_c.dirty;
+    to_clean = asked & all_dirty;
+    all_dirty &= ~to_clean;
+    env->tlb_c.dirty = all_dirty;
 
-            memset(env->tlb_table[mmu_idx], -1, sizeof(env->tlb_table[0]));
-            memset(env->tlb_v_table[mmu_idx], -1, sizeof(env->tlb_v_table[0]));
-        }
+    for (work = to_clean; work != 0; work &= work - 1) {
+        int mmu_idx = ctz32(work);
+        tlb_flush_one_mmuidx_locked(env, mmu_idx);
     }
-    qemu_spin_unlock(&env->tlb_lock);
+
+    qemu_spin_unlock(&env->tlb_c.lock);
 
     cpu_tb_jmp_cache_clear(cpu);
 
-    tlb_debug("done\n");
+    if (to_clean == ALL_MMUIDX_BITS) {
+        atomic_set(&env->tlb_c.full_flush_count,
+                   env->tlb_c.full_flush_count + 1);
+    } else {
+        atomic_set(&env->tlb_c.part_flush_count,
+                   env->tlb_c.part_flush_count + ctpop16(to_clean));
+        if (to_clean != asked) {
+            atomic_set(&env->tlb_c.elide_flush_count,
+                       env->tlb_c.elide_flush_count +
+                       ctpop16(asked & ~to_clean));
+        }
+    }
 }
 
 void tlb_flush_by_mmuidx(CPUState *cpu, uint16_t idxmap)
 {
     tlb_debug("mmu_idx: 0x%" PRIx16 "\n", idxmap);
 
-    if (!qemu_cpu_is_self(cpu)) {
-        uint16_t pending_flushes = idxmap;
-        pending_flushes &= ~atomic_mb_read(&cpu->pending_tlb_flush);
-
-        if (pending_flushes) {
-            tlb_debug("reduced mmu_idx: 0x%" PRIx16 "\n", pending_flushes);
-
-            atomic_or(&cpu->pending_tlb_flush, pending_flushes);
-            async_run_on_cpu(cpu, tlb_flush_by_mmuidx_async_work,
-                             RUN_ON_CPU_HOST_INT(pending_flushes));
-        }
+    if (cpu->created && !qemu_cpu_is_self(cpu)) {
+        async_run_on_cpu(cpu, tlb_flush_by_mmuidx_async_work,
+                         RUN_ON_CPU_HOST_INT(idxmap));
     } else {
-        tlb_flush_by_mmuidx_async_work(cpu,
-                                       RUN_ON_CPU_HOST_INT(idxmap));
+        tlb_flush_by_mmuidx_async_work(cpu, RUN_ON_CPU_HOST_INT(idxmap));
     }
+}
+
+void tlb_flush(CPUState *cpu)
+{
+    tlb_flush_by_mmuidx(cpu, ALL_MMUIDX_BITS);
 }
 
 void tlb_flush_by_mmuidx_all_cpus(CPUState *src_cpu, uint16_t idxmap)
@@ -243,8 +358,12 @@ void tlb_flush_by_mmuidx_all_cpus(CPUState *src_cpu, uint16_t idxmap)
     fn(src_cpu, RUN_ON_CPU_HOST_INT(idxmap));
 }
 
-void tlb_flush_by_mmuidx_all_cpus_synced(CPUState *src_cpu,
-                                                       uint16_t idxmap)
+void tlb_flush_all_cpus(CPUState *src_cpu)
+{
+    tlb_flush_by_mmuidx_all_cpus(src_cpu, ALL_MMUIDX_BITS);
+}
+
+void tlb_flush_by_mmuidx_all_cpus_synced(CPUState *src_cpu, uint16_t idxmap)
 {
     const run_on_cpu_func fn = tlb_flush_by_mmuidx_async_work;
 
@@ -252,6 +371,11 @@ void tlb_flush_by_mmuidx_all_cpus_synced(CPUState *src_cpu,
 
     flush_all_helper(src_cpu, fn, RUN_ON_CPU_HOST_INT(idxmap));
     async_safe_run_on_cpu(src_cpu, fn, RUN_ON_CPU_HOST_INT(idxmap));
+}
+
+void tlb_flush_all_cpus_synced(CPUState *src_cpu)
+{
+    tlb_flush_by_mmuidx_all_cpus_synced(src_cpu, ALL_MMUIDX_BITS);
 }
 
 static inline bool tlb_hit_page_anyprot(CPUTLBEntry *tlb_entry,
@@ -262,16 +386,27 @@ static inline bool tlb_hit_page_anyprot(CPUTLBEntry *tlb_entry,
            tlb_hit_page(tlb_entry->addr_code, page);
 }
 
-/* Called with tlb_lock held */
-static inline void tlb_flush_entry_locked(CPUTLBEntry *tlb_entry,
+/**
+ * tlb_entry_is_empty - return true if the entry is not in use
+ * @te: pointer to CPUTLBEntry
+ */
+static inline bool tlb_entry_is_empty(const CPUTLBEntry *te)
+{
+    return te->addr_read == -1 && te->addr_write == -1 && te->addr_code == -1;
+}
+
+/* Called with tlb_c.lock held */
+static inline bool tlb_flush_entry_locked(CPUTLBEntry *tlb_entry,
                                           target_ulong page)
 {
     if (tlb_hit_page_anyprot(tlb_entry, page)) {
         memset(tlb_entry, -1, sizeof(*tlb_entry));
+        return true;
     }
+    return false;
 }
 
-/* Called with tlb_lock held */
+/* Called with tlb_c.lock held */
 static inline void tlb_flush_vtlb_page_locked(CPUArchState *env, int mmu_idx,
                                               target_ulong page)
 {
@@ -279,50 +414,29 @@ static inline void tlb_flush_vtlb_page_locked(CPUArchState *env, int mmu_idx,
 
     assert_cpu_is_self(ENV_GET_CPU(env));
     for (k = 0; k < CPU_VTLB_SIZE; k++) {
-        tlb_flush_entry_locked(&env->tlb_v_table[mmu_idx][k], page);
+        if (tlb_flush_entry_locked(&env->tlb_v_table[mmu_idx][k], page)) {
+            tlb_n_used_entries_dec(env, mmu_idx);
+        }
     }
 }
 
-static void tlb_flush_page_async_work(CPUState *cpu, run_on_cpu_data data)
+static void tlb_flush_page_locked(CPUArchState *env, int midx,
+                                  target_ulong page)
 {
-    CPUArchState *env = cpu->env_ptr;
-    target_ulong addr = (target_ulong) data.target_ptr;
-    int mmu_idx;
-
-    assert_cpu_is_self(cpu);
-
-    tlb_debug("page :" TARGET_FMT_lx "\n", addr);
+    target_ulong lp_addr = env->tlb_d[midx].large_page_addr;
+    target_ulong lp_mask = env->tlb_d[midx].large_page_mask;
 
     /* Check if we need to flush due to large pages.  */
-    if ((addr & env->tlb_flush_mask) == env->tlb_flush_addr) {
-        tlb_debug("forcing full flush ("
+    if ((page & lp_mask) == lp_addr) {
+        tlb_debug("forcing full flush midx %d ("
                   TARGET_FMT_lx "/" TARGET_FMT_lx ")\n",
-                  env->tlb_flush_addr, env->tlb_flush_mask);
-
-        tlb_flush(cpu);
-        return;
-    }
-
-    addr &= TARGET_PAGE_MASK;
-    qemu_spin_lock(&env->tlb_lock);
-    for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
-        tlb_flush_entry_locked(tlb_entry(env, mmu_idx, addr), addr);
-        tlb_flush_vtlb_page_locked(env, mmu_idx, addr);
-    }
-    qemu_spin_unlock(&env->tlb_lock);
-
-    tb_flush_jmp_cache(cpu, addr);
-}
-
-void tlb_flush_page(CPUState *cpu, target_ulong addr)
-{
-    tlb_debug("page :" TARGET_FMT_lx "\n", addr);
-
-    if (!qemu_cpu_is_self(cpu)) {
-        async_run_on_cpu(cpu, tlb_flush_page_async_work,
-                         RUN_ON_CPU_TARGET_PTR(addr));
+                  midx, lp_addr, lp_mask);
+        tlb_flush_one_mmuidx_locked(env, midx);
     } else {
-        tlb_flush_page_async_work(cpu, RUN_ON_CPU_TARGET_PTR(addr));
+        if (tlb_flush_entry_locked(tlb_entry(env, midx, page), page)) {
+            tlb_n_used_entries_dec(env, midx);
+        }
+        tlb_flush_vtlb_page_locked(env, midx, page);
     }
 }
 
@@ -342,42 +456,18 @@ static void tlb_flush_page_by_mmuidx_async_work(CPUState *cpu,
 
     assert_cpu_is_self(cpu);
 
-    tlb_debug("flush page addr:"TARGET_FMT_lx" mmu_idx:0x%lx\n",
+    tlb_debug("page addr:" TARGET_FMT_lx " mmu_map:0x%lx\n",
               addr, mmu_idx_bitmap);
 
-    qemu_spin_lock(&env->tlb_lock);
+    qemu_spin_lock(&env->tlb_c.lock);
     for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
         if (test_bit(mmu_idx, &mmu_idx_bitmap)) {
-            tlb_flush_entry_locked(tlb_entry(env, mmu_idx, addr), addr);
-            tlb_flush_vtlb_page_locked(env, mmu_idx, addr);
+            tlb_flush_page_locked(env, mmu_idx, addr);
         }
     }
-    qemu_spin_unlock(&env->tlb_lock);
+    qemu_spin_unlock(&env->tlb_c.lock);
 
     tb_flush_jmp_cache(cpu, addr);
-}
-
-static void tlb_check_page_and_flush_by_mmuidx_async_work(CPUState *cpu,
-                                                          run_on_cpu_data data)
-{
-    CPUArchState *env = cpu->env_ptr;
-    target_ulong addr_and_mmuidx = (target_ulong) data.target_ptr;
-    target_ulong addr = addr_and_mmuidx & TARGET_PAGE_MASK;
-    unsigned long mmu_idx_bitmap = addr_and_mmuidx & ALL_MMUIDX_BITS;
-
-    tlb_debug("addr:"TARGET_FMT_lx" mmu_idx: %04lx\n", addr, mmu_idx_bitmap);
-
-    /* Check if we need to flush due to large pages.  */
-    if ((addr & env->tlb_flush_mask) == env->tlb_flush_addr) {
-        tlb_debug("forced full flush ("
-                  TARGET_FMT_lx "/" TARGET_FMT_lx ")\n",
-                  env->tlb_flush_addr, env->tlb_flush_mask);
-
-        tlb_flush_by_mmuidx_async_work(cpu,
-                                       RUN_ON_CPU_HOST_INT(mmu_idx_bitmap));
-    } else {
-        tlb_flush_page_by_mmuidx_async_work(cpu, data);
-    }
 }
 
 void tlb_flush_page_by_mmuidx(CPUState *cpu, target_ulong addr, uint16_t idxmap)
@@ -391,18 +481,23 @@ void tlb_flush_page_by_mmuidx(CPUState *cpu, target_ulong addr, uint16_t idxmap)
     addr_and_mmu_idx |= idxmap;
 
     if (!qemu_cpu_is_self(cpu)) {
-        async_run_on_cpu(cpu, tlb_check_page_and_flush_by_mmuidx_async_work,
+        async_run_on_cpu(cpu, tlb_flush_page_by_mmuidx_async_work,
                          RUN_ON_CPU_TARGET_PTR(addr_and_mmu_idx));
     } else {
-        tlb_check_page_and_flush_by_mmuidx_async_work(
+        tlb_flush_page_by_mmuidx_async_work(
             cpu, RUN_ON_CPU_TARGET_PTR(addr_and_mmu_idx));
     }
+}
+
+void tlb_flush_page(CPUState *cpu, target_ulong addr)
+{
+    tlb_flush_page_by_mmuidx(cpu, addr, ALL_MMUIDX_BITS);
 }
 
 void tlb_flush_page_by_mmuidx_all_cpus(CPUState *src_cpu, target_ulong addr,
                                        uint16_t idxmap)
 {
-    const run_on_cpu_func fn = tlb_check_page_and_flush_by_mmuidx_async_work;
+    const run_on_cpu_func fn = tlb_flush_page_by_mmuidx_async_work;
     target_ulong addr_and_mmu_idx;
 
     tlb_debug("addr: "TARGET_FMT_lx" mmu_idx:%"PRIx16"\n", addr, idxmap);
@@ -415,11 +510,16 @@ void tlb_flush_page_by_mmuidx_all_cpus(CPUState *src_cpu, target_ulong addr,
     fn(src_cpu, RUN_ON_CPU_TARGET_PTR(addr_and_mmu_idx));
 }
 
-void tlb_flush_page_by_mmuidx_all_cpus_synced(CPUState *src_cpu,
-                                                            target_ulong addr,
-                                                            uint16_t idxmap)
+void tlb_flush_page_all_cpus(CPUState *src, target_ulong addr)
 {
-    const run_on_cpu_func fn = tlb_check_page_and_flush_by_mmuidx_async_work;
+    tlb_flush_page_by_mmuidx_all_cpus(src, addr, ALL_MMUIDX_BITS);
+}
+
+void tlb_flush_page_by_mmuidx_all_cpus_synced(CPUState *src_cpu,
+                                              target_ulong addr,
+                                              uint16_t idxmap)
+{
+    const run_on_cpu_func fn = tlb_flush_page_by_mmuidx_async_work;
     target_ulong addr_and_mmu_idx;
 
     tlb_debug("addr: "TARGET_FMT_lx" mmu_idx:%"PRIx16"\n", addr, idxmap);
@@ -432,21 +532,9 @@ void tlb_flush_page_by_mmuidx_all_cpus_synced(CPUState *src_cpu,
     async_safe_run_on_cpu(src_cpu, fn, RUN_ON_CPU_TARGET_PTR(addr_and_mmu_idx));
 }
 
-void tlb_flush_page_all_cpus(CPUState *src, target_ulong addr)
+void tlb_flush_page_all_cpus_synced(CPUState *src, target_ulong addr)
 {
-    const run_on_cpu_func fn = tlb_flush_page_async_work;
-
-    flush_all_helper(src, fn, RUN_ON_CPU_TARGET_PTR(addr));
-    fn(src, RUN_ON_CPU_TARGET_PTR(addr));
-}
-
-void tlb_flush_page_all_cpus_synced(CPUState *src,
-                                                  target_ulong addr)
-{
-    const run_on_cpu_func fn = tlb_flush_page_async_work;
-
-    flush_all_helper(src, fn, RUN_ON_CPU_TARGET_PTR(addr));
-    async_safe_run_on_cpu(src, fn, RUN_ON_CPU_TARGET_PTR(addr));
+    tlb_flush_page_by_mmuidx_all_cpus_synced(src, addr, ALL_MMUIDX_BITS);
 }
 
 /* update the TLBs so that writes to code in the virtual page 'addr'
@@ -479,7 +567,7 @@ void tlb_unprotect_code(ram_addr_t ram_addr)
  * te->addr_write with atomic_set. We don't need to worry about this for
  * oversized guests as MTTCG is disabled for them.
  *
- * Called with tlb_lock held.
+ * Called with tlb_c.lock held.
  */
 static void tlb_reset_dirty_range_locked(CPUTLBEntry *tlb_entry,
                                          uintptr_t start, uintptr_t length)
@@ -501,7 +589,7 @@ static void tlb_reset_dirty_range_locked(CPUTLBEntry *tlb_entry,
 }
 
 /*
- * Called with tlb_lock held.
+ * Called with tlb_c.lock held.
  * Called only from the vCPU context, i.e. the TLB's owner thread.
  */
 static inline void copy_tlb_helper_locked(CPUTLBEntry *d, const CPUTLBEntry *s)
@@ -511,7 +599,7 @@ static inline void copy_tlb_helper_locked(CPUTLBEntry *d, const CPUTLBEntry *s)
 
 /* This is a cross vCPU call (i.e. another vCPU resetting the flags of
  * the target vCPU).
- * We must take tlb_lock to avoid racing with another vCPU update. The only
+ * We must take tlb_c.lock to avoid racing with another vCPU update. The only
  * thing actually updated is the target TLB entry ->addr_write flags.
  */
 void tlb_reset_dirty(CPUState *cpu, ram_addr_t start1, ram_addr_t length)
@@ -521,11 +609,12 @@ void tlb_reset_dirty(CPUState *cpu, ram_addr_t start1, ram_addr_t length)
     int mmu_idx;
 
     env = cpu->env_ptr;
-    qemu_spin_lock(&env->tlb_lock);
+    qemu_spin_lock(&env->tlb_c.lock);
     for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
         unsigned int i;
+        unsigned int n = tlb_n_entries(env, mmu_idx);
 
-        for (i = 0; i < CPU_TLB_SIZE; i++) {
+        for (i = 0; i < n; i++) {
             tlb_reset_dirty_range_locked(&env->tlb_table[mmu_idx][i], start1,
                                          length);
         }
@@ -535,10 +624,10 @@ void tlb_reset_dirty(CPUState *cpu, ram_addr_t start1, ram_addr_t length)
                                          length);
         }
     }
-    qemu_spin_unlock(&env->tlb_lock);
+    qemu_spin_unlock(&env->tlb_c.lock);
 }
 
-/* Called with tlb_lock held */
+/* Called with tlb_c.lock held */
 static inline void tlb_set_dirty1_locked(CPUTLBEntry *tlb_entry,
                                          target_ulong vaddr)
 {
@@ -557,7 +646,7 @@ void tlb_set_dirty(CPUState *cpu, target_ulong vaddr)
     assert_cpu_is_self(cpu);
 
     vaddr &= TARGET_PAGE_MASK;
-    qemu_spin_lock(&env->tlb_lock);
+    qemu_spin_lock(&env->tlb_c.lock);
     for (mmu_idx = 0; mmu_idx < NB_MMU_MODES; mmu_idx++) {
         tlb_set_dirty1_locked(tlb_entry(env, mmu_idx, vaddr), vaddr);
     }
@@ -568,30 +657,31 @@ void tlb_set_dirty(CPUState *cpu, target_ulong vaddr)
             tlb_set_dirty1_locked(&env->tlb_v_table[mmu_idx][k], vaddr);
         }
     }
-    qemu_spin_unlock(&env->tlb_lock);
+    qemu_spin_unlock(&env->tlb_c.lock);
 }
 
 /* Our TLB does not support large pages, so remember the area covered by
    large pages and trigger a full TLB flush if these are invalidated.  */
-static void tlb_add_large_page(CPUArchState *env, target_ulong vaddr,
-                               target_ulong size)
+static void tlb_add_large_page(CPUArchState *env, int mmu_idx,
+                               target_ulong vaddr, target_ulong size)
 {
-    target_ulong mask = ~(size - 1);
+    target_ulong lp_addr = env->tlb_d[mmu_idx].large_page_addr;
+    target_ulong lp_mask = ~(size - 1);
 
-    if (env->tlb_flush_addr == (target_ulong)-1) {
-        env->tlb_flush_addr = vaddr & mask;
-        env->tlb_flush_mask = mask;
-        return;
+    if (lp_addr == (target_ulong)-1) {
+        /* No previous large page.  */
+        lp_addr = vaddr;
+    } else {
+        /* Extend the existing region to include the new page.
+           This is a compromise between unnecessary flushes and
+           the cost of maintaining a full variable size TLB.  */
+        lp_mask &= env->tlb_d[mmu_idx].large_page_mask;
+        while (((lp_addr ^ vaddr) & lp_mask) != 0) {
+            lp_mask <<= 1;
+        }
     }
-    /* Extend the existing region to include the new page.
-       This is a compromise between unnecessary flushes and the cost
-       of maintaining a full variable size TLB.  */
-    mask &= env->tlb_flush_mask;
-    while (((env->tlb_flush_addr ^ vaddr) & mask) != 0) {
-        mask <<= 1;
-    }
-    env->tlb_flush_addr &= mask;
-    env->tlb_flush_mask = mask;
+    env->tlb_d[mmu_idx].large_page_addr = lp_addr & lp_mask;
+    env->tlb_d[mmu_idx].large_page_mask = lp_mask;
 }
 
 /* Add a new TLB entry. At most one entry for a given virtual address
@@ -618,12 +708,10 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
 
     assert_cpu_is_self(cpu);
 
-    if (size < TARGET_PAGE_SIZE) {
+    if (size <= TARGET_PAGE_SIZE) {
         sz = TARGET_PAGE_SIZE;
     } else {
-        if (size > TARGET_PAGE_SIZE) {
-            tlb_add_large_page(env, vaddr, size);
-        }
+        tlb_add_large_page(env, mmu_idx, vaddr, size);
         sz = size;
     }
     vaddr_page = vaddr & TARGET_PAGE_MASK;
@@ -669,7 +757,10 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
      * a longer critical section, but this is not a concern since the TLB lock
      * is unlikely to be contended.
      */
-    qemu_spin_lock(&env->tlb_lock);
+    qemu_spin_lock(&env->tlb_c.lock);
+
+    /* Note that the tlb is no longer clean.  */
+    env->tlb_c.dirty |= 1 << mmu_idx;
 
     /* Make sure there's no cached translation for the new page.  */
     tlb_flush_vtlb_page_locked(env, mmu_idx, vaddr_page);
@@ -678,13 +769,14 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
      * Only evict the old entry to the victim tlb if it's for a
      * different page; otherwise just overwrite the stale data.
      */
-    if (!tlb_hit_page_anyprot(te, vaddr_page)) {
-        unsigned vidx = env->vtlb_index++ % CPU_VTLB_SIZE;
+    if (!tlb_hit_page_anyprot(te, vaddr_page) && !tlb_entry_is_empty(te)) {
+        unsigned vidx = env->tlb_d[mmu_idx].vindex++ % CPU_VTLB_SIZE;
         CPUTLBEntry *tv = &env->tlb_v_table[mmu_idx][vidx];
 
         /* Evict the old entry into the victim tlb.  */
         copy_tlb_helper_locked(tv, te);
         env->iotlb_v[mmu_idx][vidx] = env->iotlb[mmu_idx][index];
+        tlb_n_used_entries_dec(env, mmu_idx);
     }
 
     /* refill the tlb */
@@ -736,7 +828,8 @@ void tlb_set_page_with_attrs(CPUState *cpu, target_ulong vaddr,
     }
 
     copy_tlb_helper_locked(te, &tn);
-    qemu_spin_unlock(&env->tlb_lock);
+    tlb_n_used_entries_inc(env, mmu_idx);
+    qemu_spin_unlock(&env->tlb_c.lock);
 }
 
 /* Add a new TLB entry, but without specifying the memory
@@ -917,11 +1010,11 @@ static bool victim_tlb_hit(CPUArchState *env, size_t mmu_idx, size_t index,
             /* Found entry in victim tlb, swap tlb and iotlb.  */
             CPUTLBEntry tmptlb, *tlb = &env->tlb_table[mmu_idx][index];
 
-            qemu_spin_lock(&env->tlb_lock);
+            qemu_spin_lock(&env->tlb_c.lock);
             copy_tlb_helper_locked(&tmptlb, tlb);
             copy_tlb_helper_locked(tlb, vtlb);
             copy_tlb_helper_locked(vtlb, &tmptlb);
-            qemu_spin_unlock(&env->tlb_lock);
+            qemu_spin_unlock(&env->tlb_c.lock);
 
             CPUIOTLBEntry tmpio, *io = &env->iotlb[mmu_idx][index];
             CPUIOTLBEntry *vio = &env->iotlb_v[mmu_idx][vidx];

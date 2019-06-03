@@ -41,6 +41,9 @@
 #
 # @multifd-bytes: The number of bytes sent through multifd (since 3.0)
 #
+# @pages-per-second: the number of memory pages transferred per second
+#        (Since 4.0)
+#
 # Since: 0.14.0
 ##
 { 'struct': 'MigrationStats',
@@ -49,7 +52,7 @@
            'normal-bytes': 'int', 'dirty-pages-rate' : 'int',
            'mbps' : 'number', 'dirty-sync-count' : 'int',
            'postcopy-requests' : 'int', 'page-size' : 'int',
-           'multifd-bytes' : 'uint64' } }
+           'multifd-bytes' : 'uint64', 'pages-per-second' : 'uint64' } }
 
 ##
 # @XBZRLECacheStats:
@@ -1257,7 +1260,8 @@
 # Since: 2.9
 ##
 { 'command': 'xen-set-replication',
-  'data': { 'enable': 'bool', 'primary': 'bool', '*failover' : 'bool' } }
+  'data': { 'enable': 'bool', 'primary': 'bool', '*failover' : 'bool' },
+  'if': 'defined(CONFIG_REPLICATION)' }
 
 ##
 # @ReplicationStatus:
@@ -1272,7 +1276,8 @@
 # Since: 2.9
 ##
 { 'struct': 'ReplicationStatus',
-  'data': { 'error': 'bool', '*desc': 'str' } }
+  'data': { 'error': 'bool', '*desc': 'str' },
+  'if': 'defined(CONFIG_REPLICATION)' }
 
 ##
 # @query-xen-replication-status:
@@ -1289,7 +1294,8 @@
 # Since: 2.9
 ##
 { 'command': 'query-xen-replication-status',
-  'returns': 'ReplicationStatus' }
+  'returns': 'ReplicationStatus',
+  'if': 'defined(CONFIG_REPLICATION)' }
 
 ##
 # @xen-colo-do-checkpoint:
@@ -1305,7 +1311,8 @@
 #
 # Since: 2.9
 ##
-{ 'command': 'xen-colo-do-checkpoint' }
+{ 'command': 'xen-colo-do-checkpoint',
+  'if': 'defined(CONFIG_REPLICATION)' }
 
 ##
 # @COLOStatus:
@@ -1317,7 +1324,7 @@
 #
 # @reason: describes the reason for the COLO exit.
 #
-# Since: 3.0
+# Since: 3.1
 ##
 { 'struct': 'COLOStatus',
   'data': { 'mode': 'COLOMode', 'reason': 'COLOExitReason' } }
@@ -1334,7 +1341,7 @@
 # -> { "execute": "query-colo-status" }
 # <- { "return": { "mode": "primary", "active": true, "reason": "request" } }
 #
-# Since: 3.0
+# Since: 3.1
 ##
 { 'command': 'query-colo-status',
   'returns': 'COLOStatus' }
@@ -1356,7 +1363,8 @@
 #
 # Since: 3.0
 ##
-{ 'command': 'migrate-recover', 'data': { 'uri': 'str' },
+{ 'command': 'migrate-recover',
+  'data': { 'uri': 'str' },
   'allow-oob': true }
 
 ##

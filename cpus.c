@@ -1220,16 +1220,20 @@ static void qemu_wait_io_event_common(CPUState *cpu)
     process_queued_cpu_work(cpu);
 }
 
-static void qemu_tcg_rr_wait_io_event(CPUState *cpu)
+static void qemu_tcg_rr_wait_io_event(void)
 {
+    CPUState *cpu;
+
     while (all_cpu_threads_idle()) {
         stop_tcg_kick_timer();
-        qemu_cond_wait(cpu->halt_cond, &qemu_global_mutex);
+        qemu_cond_wait(first_cpu->halt_cond, &qemu_global_mutex);
     }
 
     start_tcg_kick_timer();
 
-    qemu_wait_io_event_common(cpu);
+    CPU_FOREACH(cpu) {
+        qemu_wait_io_event_common(cpu);
+    }
 }
 
 static void qemu_wait_io_event(CPUState *cpu)
@@ -1554,7 +1558,15 @@ static void *qemu_tcg_rr_cpu_thread_fn(void *arg)
             atomic_mb_set(&cpu->exit_request, 0);
         }
 
-        qemu_tcg_rr_wait_io_event(cpu ? cpu : first_cpu);
+        if (use_icount && all_cpu_threads_idle()) {
+            /*
+             * When all cpus are sleeping (e.g in WFI), to avoid a deadlock
+             * in the main_loop, wake it up in order to start the warp timer.
+             */
+            qemu_notify_event();
+        }
+
+        qemu_tcg_rr_wait_io_event();
         deal_with_unplugged_cpus();
     }
 
@@ -1766,7 +1778,7 @@ static void qemu_cpu_kick_thread(CPUState *cpu)
     }
     cpu->thread_kicked = true;
     err = pthread_kill(cpu->thread->thread, SIG_IPI);
-    if (err) {
+    if (err && err != ESRCH) {
         fprintf(stderr, "qemu:%s: %s", __func__, strerror(err));
         exit(1);
     }
@@ -2088,7 +2100,8 @@ void qemu_init_vcpu(CPUState *cpu)
 void cpu_stop_current(void)
 {
     if (current_cpu) {
-        qemu_cpu_stop(current_cpu, true);
+        current_cpu->stop = true;
+        cpu_exit(current_cpu);
     }
 }
 

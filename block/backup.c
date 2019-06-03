@@ -28,6 +28,13 @@
 
 #define BACKUP_CLUSTER_SIZE_DEFAULT (1 << 16)
 
+typedef struct CowRequest {
+    int64_t start_byte;
+    int64_t end_byte;
+    QLIST_ENTRY(CowRequest) list;
+    CoQueue wait_queue; /* coroutines blocked on this request */
+} CowRequest;
+
 typedef struct BackupBlockJob {
     BlockJob common;
     BlockBackend *target;
@@ -322,37 +329,6 @@ void backup_do_checkpoint(BlockJob *job, Error **errp)
     hbitmap_set(backup_job->copy_bitmap, 0, len);
 }
 
-void backup_wait_for_overlapping_requests(BlockJob *job, int64_t offset,
-                                          uint64_t bytes)
-{
-    BackupBlockJob *backup_job = container_of(job, BackupBlockJob, common);
-    int64_t start, end;
-
-    assert(block_job_driver(job) == &backup_job_driver);
-
-    start = QEMU_ALIGN_DOWN(offset, backup_job->cluster_size);
-    end = QEMU_ALIGN_UP(offset + bytes, backup_job->cluster_size);
-    wait_for_overlapping_requests(backup_job, start, end);
-}
-
-void backup_cow_request_begin(CowRequest *req, BlockJob *job,
-                              int64_t offset, uint64_t bytes)
-{
-    BackupBlockJob *backup_job = container_of(job, BackupBlockJob, common);
-    int64_t start, end;
-
-    assert(block_job_driver(job) == &backup_job_driver);
-
-    start = QEMU_ALIGN_DOWN(offset, backup_job->cluster_size);
-    end = QEMU_ALIGN_UP(offset + bytes, backup_job->cluster_size);
-    cow_request_begin(req, backup_job, start, end);
-}
-
-void backup_cow_request_end(CowRequest *req)
-{
-    cow_request_end(req);
-}
-
 static void backup_drain(BlockJob *job)
 {
     BackupBlockJob *s = container_of(job, BackupBlockJob, common);
@@ -409,7 +385,7 @@ static int coroutine_fn backup_run_incremental(BackupBlockJob *job)
     HBitmapIter hbi;
 
     hbitmap_iter_init(&hbi, job->copy_bitmap, 0);
-    while ((cluster = hbitmap_iter_next(&hbi, true)) != -1) {
+    while ((cluster = hbitmap_iter_next(&hbi)) != -1) {
         do {
             if (yield_and_check(job)) {
                 return 0;
@@ -446,7 +422,8 @@ static void backup_incremental_init_copy_bitmap(BackupBlockJob *job)
             break;
         }
 
-        offset = bdrv_dirty_bitmap_next_zero(job->sync_bitmap, offset);
+        offset = bdrv_dirty_bitmap_next_zero(job->sync_bitmap, offset,
+                                             UINT64_MAX);
         if (offset == -1) {
             hbitmap_set(job->copy_bitmap, cluster, end - cluster);
             break;

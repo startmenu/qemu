@@ -39,7 +39,7 @@ static bool memory_region_update_pending;
 static bool ioeventfd_update_pending;
 static bool global_dirty_log = false;
 
-static QTAILQ_HEAD(memory_listeners, MemoryListener) memory_listeners
+static QTAILQ_HEAD(, MemoryListener) memory_listeners
     = QTAILQ_HEAD_INITIALIZER(memory_listeners);
 
 static QTAILQ_HEAD(, AddressSpace) address_spaces
@@ -113,8 +113,7 @@ enum ListenerDirection { Forward, Reverse };
             }                                                           \
             break;                                                      \
         case Reverse:                                                   \
-            QTAILQ_FOREACH_REVERSE(_listener, &memory_listeners,        \
-                                   memory_listeners, link) {            \
+            QTAILQ_FOREACH_REVERSE(_listener, &memory_listeners, link) { \
                 if (_listener->_callback) {                             \
                     _listener->_callback(_listener, ##_args);           \
                 }                                                       \
@@ -128,19 +127,17 @@ enum ListenerDirection { Forward, Reverse };
 #define MEMORY_LISTENER_CALL(_as, _callback, _direction, _section, _args...) \
     do {                                                                \
         MemoryListener *_listener;                                      \
-        struct memory_listeners_as *list = &(_as)->listeners;           \
                                                                         \
         switch (_direction) {                                           \
         case Forward:                                                   \
-            QTAILQ_FOREACH(_listener, list, link_as) {                  \
+            QTAILQ_FOREACH(_listener, &(_as)->listeners, link_as) {     \
                 if (_listener->_callback) {                             \
                     _listener->_callback(_listener, _section, ##_args); \
                 }                                                       \
             }                                                           \
             break;                                                      \
         case Reverse:                                                   \
-            QTAILQ_FOREACH_REVERSE(_listener, list, memory_listeners_as, \
-                                   link_as) {                           \
+            QTAILQ_FOREACH_REVERSE(_listener, &(_as)->listeners, link_as) { \
                 if (_listener->_callback) {                             \
                     _listener->_callback(_listener, _section, ##_args); \
                 }                                                       \
@@ -216,6 +213,8 @@ struct FlatRange {
     uint8_t dirty_log_mask;
     bool romd_mode;
     bool readonly;
+    bool nonvolatile;
+    int has_coalesced_range;
 };
 
 #define FOR_EACH_FLAT_RANGE(var, view)          \
@@ -231,6 +230,7 @@ section_from_flat_range(FlatRange *fr, FlatView *fv)
         .size = fr->addr.size,
         .offset_within_address_space = int128_get64(fr->addr.start),
         .readonly = fr->readonly,
+        .nonvolatile = fr->nonvolatile,
     };
 }
 
@@ -240,7 +240,8 @@ static bool flatrange_equal(FlatRange *a, FlatRange *b)
         && addrrange_equal(a->addr, b->addr)
         && a->offset_in_region == b->offset_in_region
         && a->romd_mode == b->romd_mode
-        && a->readonly == b->readonly;
+        && a->readonly == b->readonly
+        && a->nonvolatile == b->nonvolatile;
 }
 
 static FlatView *flatview_new(MemoryRegion *mr_root)
@@ -312,7 +313,8 @@ static bool can_merge(FlatRange *r1, FlatRange *r2)
                      int128_make64(r2->offset_in_region))
         && r1->dirty_log_mask == r2->dirty_log_mask
         && r1->romd_mode == r2->romd_mode
-        && r1->readonly == r2->readonly;
+        && r1->readonly == r2->readonly
+        && r1->nonvolatile == r2->nonvolatile;
 }
 
 /* Attempt to simplify a view by merging adjacent ranges */
@@ -592,7 +594,8 @@ static void render_memory_region(FlatView *view,
                                  MemoryRegion *mr,
                                  Int128 base,
                                  AddrRange clip,
-                                 bool readonly)
+                                 bool readonly,
+                                 bool nonvolatile)
 {
     MemoryRegion *subregion;
     unsigned i;
@@ -608,6 +611,7 @@ static void render_memory_region(FlatView *view,
 
     int128_addto(&base, int128_make64(mr->addr));
     readonly |= mr->readonly;
+    nonvolatile |= mr->nonvolatile;
 
     tmp = addrrange_make(base, mr->size);
 
@@ -620,13 +624,15 @@ static void render_memory_region(FlatView *view,
     if (mr->alias) {
         int128_subfrom(&base, int128_make64(mr->alias->addr));
         int128_subfrom(&base, int128_make64(mr->alias_offset));
-        render_memory_region(view, mr->alias, base, clip, readonly);
+        render_memory_region(view, mr->alias, base, clip,
+                             readonly, nonvolatile);
         return;
     }
 
     /* Render subregions in priority order. */
     QTAILQ_FOREACH(subregion, &mr->subregions, subregions_link) {
-        render_memory_region(view, subregion, base, clip, readonly);
+        render_memory_region(view, subregion, base, clip,
+                             readonly, nonvolatile);
     }
 
     if (!mr->terminates) {
@@ -641,6 +647,8 @@ static void render_memory_region(FlatView *view,
     fr.dirty_log_mask = memory_region_get_dirty_log_mask(mr);
     fr.romd_mode = mr->romd_mode;
     fr.readonly = readonly;
+    fr.nonvolatile = nonvolatile;
+    fr.has_coalesced_range = 0;
 
     /* Render the region itself into any gaps left by the current view. */
     for (i = 0; i < view->nr && int128_nz(remain); ++i) {
@@ -726,7 +734,8 @@ static FlatView *generate_memory_topology(MemoryRegion *mr)
 
     if (mr) {
         render_memory_region(view, mr, int128_zero(),
-                             addrrange_make(int128_zero(), int128_2_64()), false);
+                             addrrange_make(int128_zero(), int128_2_64()),
+                             false, false);
     }
     flatview_simplify(view);
 
@@ -840,6 +849,49 @@ static void address_space_update_ioeventfds(AddressSpace *as)
     flatview_unref(view);
 }
 
+static void flat_range_coalesced_io_del(FlatRange *fr, AddressSpace *as)
+{
+    if (!fr->has_coalesced_range) {
+        return;
+    }
+
+    if (--fr->has_coalesced_range > 0) {
+        return;
+    }
+
+    MEMORY_LISTENER_UPDATE_REGION(fr, as, Reverse, coalesced_io_del,
+                                  int128_get64(fr->addr.start),
+                                  int128_get64(fr->addr.size));
+}
+
+static void flat_range_coalesced_io_add(FlatRange *fr, AddressSpace *as)
+{
+    MemoryRegion *mr = fr->mr;
+    CoalescedMemoryRange *cmr;
+    AddrRange tmp;
+
+    if (QTAILQ_EMPTY(&mr->coalesced)) {
+        return;
+    }
+
+    if (fr->has_coalesced_range++) {
+        return;
+    }
+
+    QTAILQ_FOREACH(cmr, &mr->coalesced, link) {
+        tmp = addrrange_shift(cmr->addr,
+                              int128_sub(fr->addr.start,
+                                         int128_make64(fr->offset_in_region)));
+        if (!addrrange_intersects(tmp, fr->addr)) {
+            continue;
+        }
+        tmp = addrrange_intersection(tmp, fr->addr);
+        MEMORY_LISTENER_UPDATE_REGION(fr, as, Forward, coalesced_io_add,
+                                      int128_get64(tmp.start),
+                                      int128_get64(tmp.size));
+    }
+}
+
 static void address_space_update_topology_pass(AddressSpace *as,
                                                const FlatView *old_view,
                                                const FlatView *new_view,
@@ -872,6 +924,7 @@ static void address_space_update_topology_pass(AddressSpace *as,
             /* In old but not in new, or in both but attributes changed. */
 
             if (!adding) {
+                flat_range_coalesced_io_del(frold, as);
                 MEMORY_LISTENER_UPDATE_REGION(frold, as, Reverse, region_del);
             }
 
@@ -879,7 +932,9 @@ static void address_space_update_topology_pass(AddressSpace *as,
         } else if (frold && frnew && flatrange_equal(frold, frnew)) {
             /* In both and unchanged (except logging may have changed) */
 
-            if (adding) {
+            if (!adding) {
+                flat_range_coalesced_io_del(frold, as);
+            } else {
                 MEMORY_LISTENER_UPDATE_REGION(frnew, as, Forward, region_nop);
                 if (frnew->dirty_log_mask & ~frold->dirty_log_mask) {
                     MEMORY_LISTENER_UPDATE_REGION(frnew, as, Forward, log_start,
@@ -891,6 +946,7 @@ static void address_space_update_topology_pass(AddressSpace *as,
                                                   frold->dirty_log_mask,
                                                   frnew->dirty_log_mask);
                 }
+                flat_range_coalesced_io_add(frnew, as);
             }
 
             ++iold;
@@ -900,6 +956,7 @@ static void address_space_update_topology_pass(AddressSpace *as,
 
             if (adding) {
                 MEMORY_LISTENER_UPDATE_REGION(frnew, as, Forward, region_add);
+                flat_range_coalesced_io_add(frnew, as);
             }
 
             ++inew;
@@ -2039,6 +2096,16 @@ void memory_region_set_readonly(MemoryRegion *mr, bool readonly)
     }
 }
 
+void memory_region_set_nonvolatile(MemoryRegion *mr, bool nonvolatile)
+{
+    if (mr->nonvolatile != nonvolatile) {
+        memory_region_transaction_begin();
+        mr->nonvolatile = nonvolatile;
+        memory_region_update_pending |= mr->enabled;
+        memory_region_transaction_commit();
+    }
+}
+
 void memory_region_rom_device_set_romd(MemoryRegion *mr, bool romd_mode)
 {
     if (mr->romd_mode != romd_mode) {
@@ -2116,34 +2183,12 @@ static void memory_region_update_coalesced_range_as(MemoryRegion *mr, AddressSpa
 {
     FlatView *view;
     FlatRange *fr;
-    CoalescedMemoryRange *cmr;
-    AddrRange tmp;
-    MemoryRegionSection section;
 
     view = address_space_get_flatview(as);
     FOR_EACH_FLAT_RANGE(fr, view) {
         if (fr->mr == mr) {
-            section = (MemoryRegionSection) {
-                .fv = view,
-                .offset_within_address_space = int128_get64(fr->addr.start),
-                .size = fr->addr.size,
-            };
-
-            MEMORY_LISTENER_CALL(as, coalesced_io_del, Reverse, &section,
-                                 int128_get64(fr->addr.start),
-                                 int128_get64(fr->addr.size));
-            QTAILQ_FOREACH(cmr, &mr->coalesced, link) {
-                tmp = addrrange_shift(cmr->addr,
-                                      int128_sub(fr->addr.start,
-                                                 int128_make64(fr->offset_in_region)));
-                if (!addrrange_intersects(tmp, fr->addr)) {
-                    continue;
-                }
-                tmp = addrrange_intersection(tmp, fr->addr);
-                MEMORY_LISTENER_CALL(as, coalesced_io_add, Forward, &section,
-                                     int128_get64(tmp.start),
-                                     int128_get64(tmp.size));
-            }
+            flat_range_coalesced_io_del(fr, as);
+            flat_range_coalesced_io_add(fr, as);
         }
     }
     flatview_unref(view);
@@ -2489,6 +2534,7 @@ static MemoryRegionSection memory_region_find_rcu(MemoryRegion *mr,
     ret.size = range.size;
     ret.offset_within_address_space = int128_get64(range.start);
     ret.readonly = fr->readonly;
+    ret.nonvolatile = fr->nonvolatile;
     return ret;
 }
 
@@ -2642,8 +2688,7 @@ void memory_listener_register(MemoryListener *listener, AddressSpace *as)
 
     listener->address_space = as;
     if (QTAILQ_EMPTY(&memory_listeners)
-        || listener->priority >= QTAILQ_LAST(&memory_listeners,
-                                             memory_listeners)->priority) {
+        || listener->priority >= QTAILQ_LAST(&memory_listeners)->priority) {
         QTAILQ_INSERT_TAIL(&memory_listeners, listener, link);
     } else {
         QTAILQ_FOREACH(other, &memory_listeners, link) {
@@ -2655,8 +2700,7 @@ void memory_listener_register(MemoryListener *listener, AddressSpace *as)
     }
 
     if (QTAILQ_EMPTY(&as->listeners)
-        || listener->priority >= QTAILQ_LAST(&as->listeners,
-                                             memory_listeners)->priority) {
+        || listener->priority >= QTAILQ_LAST(&as->listeners)->priority) {
         QTAILQ_INSERT_TAIL(&as->listeners, listener, link_as);
     } else {
         QTAILQ_FOREACH(other, &as->listeners, link_as) {
@@ -2746,7 +2790,7 @@ struct MemoryRegionList {
     QTAILQ_ENTRY(MemoryRegionList) mrqueue;
 };
 
-typedef QTAILQ_HEAD(mrqueue, MemoryRegionList) MemoryRegionListHead;
+typedef QTAILQ_HEAD(, MemoryRegionList) MemoryRegionListHead;
 
 #define MR_SIZE(size) (int128_nz(size) ? (hwaddr)int128_get64( \
                            int128_sub((size), int128_one())) : 0)
@@ -2839,10 +2883,11 @@ static void mtree_print_mr(fprintf_function mon_printf, void *f,
             QTAILQ_INSERT_TAIL(alias_print_queue, ml, mrqueue);
         }
         mon_printf(f, TARGET_FMT_plx "-" TARGET_FMT_plx
-                   " (prio %d, %s): alias %s @%s " TARGET_FMT_plx
+                   " (prio %d, %s%s): alias %s @%s " TARGET_FMT_plx
                    "-" TARGET_FMT_plx "%s",
                    cur_start, cur_end,
                    mr->priority,
+                   mr->nonvolatile ? "nv-" : "",
                    memory_region_type((MemoryRegion *)mr),
                    memory_region_name(mr),
                    memory_region_name(mr->alias),
@@ -2854,9 +2899,10 @@ static void mtree_print_mr(fprintf_function mon_printf, void *f,
         }
     } else {
         mon_printf(f,
-                   TARGET_FMT_plx "-" TARGET_FMT_plx " (prio %d, %s): %s%s",
+                   TARGET_FMT_plx "-" TARGET_FMT_plx " (prio %d, %s%s): %s%s",
                    cur_start, cur_end,
                    mr->priority,
+                   mr->nonvolatile ? "nv-" : "",
                    memory_region_type((MemoryRegion *)mr),
                    memory_region_name(mr),
                    mr->enabled ? "" : " [disabled]");
@@ -2941,19 +2987,21 @@ static void mtree_print_flatview(gpointer key, gpointer value,
         mr = range->mr;
         if (range->offset_in_region) {
             p(f, MTREE_INDENT TARGET_FMT_plx "-"
-              TARGET_FMT_plx " (prio %d, %s): %s @" TARGET_FMT_plx,
+              TARGET_FMT_plx " (prio %d, %s%s): %s @" TARGET_FMT_plx,
               int128_get64(range->addr.start),
               int128_get64(range->addr.start) + MR_SIZE(range->addr.size),
               mr->priority,
+              range->nonvolatile ? "nv-" : "",
               range->readonly ? "rom" : memory_region_type(mr),
               memory_region_name(mr),
               range->offset_in_region);
         } else {
             p(f, MTREE_INDENT TARGET_FMT_plx "-"
-              TARGET_FMT_plx " (prio %d, %s): %s",
+              TARGET_FMT_plx " (prio %d, %s%s): %s",
               int128_get64(range->addr.start),
               int128_get64(range->addr.start) + MR_SIZE(range->addr.size),
               mr->priority,
+              range->nonvolatile ? "nv-" : "",
               range->readonly ? "rom" : memory_region_type(mr),
               memory_region_name(mr));
         }

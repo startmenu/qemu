@@ -39,7 +39,7 @@ powerpc_cross_prefix := $(call find-cross-prefix,powerpc)
 x86_64_cross_prefix := $(call find-cross-prefix,x86_64)
 
 # tag our seabios builds
-SEABIOS_EXTRAVERSION="-prebuilt.qemu-project.org"
+SEABIOS_EXTRAVERSION="-prebuilt.qemu.org"
 
 #
 # EfiRom utility is shipped with edk2 / tianocore, in BaseTools/
@@ -83,12 +83,12 @@ build-seabios-config-%: config.%
 	cp $< seabios/builds/$*/.config
 	$(MAKE) -C seabios \
 		EXTRAVERSION=$(SEABIOS_EXTRAVERSION) \
-		CROSS_COMPILE=$(x86_64_cross_prefix) \
+		CROSS_PREFIX=$(x86_64_cross_prefix) \
 		KCONFIG_CONFIG=$(CURDIR)/seabios/builds/$*/.config \
 		OUT=$(CURDIR)/seabios/builds/$*/ oldnoconfig
 	$(MAKE) -C seabios \
 		EXTRAVERSION=$(SEABIOS_EXTRAVERSION) \
-		CROSS_COMPILE=$(x86_64_cross_prefix) \
+		CROSS_PREFIX=$(x86_64_cross_prefix) \
 		KCONFIG_CONFIG=$(CURDIR)/seabios/builds/$*/.config \
 		OUT=$(CURDIR)/seabios/builds/$*/ all
 

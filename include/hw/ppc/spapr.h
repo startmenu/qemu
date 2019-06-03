@@ -8,14 +8,16 @@
 #include "hw/mem/pc-dimm.h"
 #include "hw/ppc/spapr_ovec.h"
 #include "hw/ppc/spapr_irq.h"
+#include "hw/ppc/spapr_xive.h"  /* For sPAPRXive */
+#include "hw/ppc/xics.h"        /* For ICSState */
 
 struct VIOsPAPRBus;
 struct sPAPRPHBState;
 struct sPAPRNVRAM;
+
 typedef struct sPAPREventLogEntry sPAPREventLogEntry;
 typedef struct sPAPREventSource sPAPREventSource;
 typedef struct sPAPRPendingHPT sPAPRPendingHPT;
-typedef struct ICSState ICSState;
 
 #define HPTE64_V_HPTE_DIRTY     0x0000000000000040ULL
 #define SPAPR_ENTRY_POINT       0x100
@@ -70,8 +72,10 @@ typedef enum {
 #define SPAPR_CAP_IBS                   0x05
 /* HPT Maximum Page Size (encoded as a shift) */
 #define SPAPR_CAP_HPT_MAXPAGESIZE       0x06
+/* Nested KVM-HV */
+#define SPAPR_CAP_NESTED_KVM_HV         0x07
 /* Num Caps */
-#define SPAPR_CAP_NUM                   (SPAPR_CAP_HPT_MAXPAGESIZE + 1)
+#define SPAPR_CAP_NUM                   (SPAPR_CAP_NESTED_KVM_HV + 1)
 
 /*
  * Capability Values
@@ -100,6 +104,7 @@ struct sPAPRMachineClass {
 
     /*< public >*/
     bool dr_lmb_enabled;       /* enable dynamic-reconfig/hotplug of LMBs */
+    bool update_dt_enabled;    /* enable KVMPPC_H_UPDATE_DT */
     bool use_ohci_by_default;  /* use USB-OHCI instead of XHCI */
     bool pre_2_10_has_unused_icps;
     bool legacy_irq_allocation;
@@ -136,6 +141,9 @@ struct sPAPRMachineState {
     int vrma_adjust;
     ssize_t rtas_size;
     void *rtas_blob;
+    uint32_t fdt_size;
+    uint32_t fdt_initial_size;
+    void *fdt_blob;
     long kernel_size;
     bool kernel_le;
     uint32_t initrd_base;
@@ -173,6 +181,9 @@ struct sPAPRMachineState {
     const char *icp_type;
     int32_t irq_map_nr;
     unsigned long *irq_map;
+    sPAPRXive  *xive;
+    sPAPRIrq *irq;
+    qemu_irq *qirqs;
 
     bool cmd_line_caps[SPAPR_CAP_NUM];
     sPAPRCapabilities def, eff, mig;
@@ -439,6 +450,7 @@ struct sPAPRMachineState {
 #define H_GET_EM_PARMS          0x2B8
 #define H_SET_MPP               0x2D0
 #define H_GET_MPP               0x2D4
+#define H_HOME_NODE_ASSOCIATIVITY 0x2EC
 #define H_XIRR_X                0x2FC
 #define H_RANDOM                0x300
 #define H_SET_MODE              0x31C
@@ -448,7 +460,20 @@ struct sPAPRMachineState {
 #define H_INVALIDATE_PID        0x378
 #define H_REGISTER_PROC_TBL     0x37C
 #define H_SIGNAL_SYS_RESET      0x380
-#define MAX_HCALL_OPCODE        H_SIGNAL_SYS_RESET
+
+#define H_INT_GET_SOURCE_INFO   0x3A8
+#define H_INT_SET_SOURCE_CONFIG 0x3AC
+#define H_INT_GET_SOURCE_CONFIG 0x3B0
+#define H_INT_GET_QUEUE_INFO    0x3B4
+#define H_INT_SET_QUEUE_CONFIG  0x3B8
+#define H_INT_GET_QUEUE_CONFIG  0x3BC
+#define H_INT_SET_OS_REPORTING_LINE 0x3C0
+#define H_INT_GET_OS_REPORTING_LINE 0x3C4
+#define H_INT_ESB               0x3C8
+#define H_INT_SYNC              0x3CC
+#define H_INT_RESET             0x3D0
+
+#define MAX_HCALL_OPCODE        H_INT_RESET
 
 /* The hcalls above are standardized in PAPR and implemented by pHyp
  * as well.
@@ -462,7 +487,8 @@ struct sPAPRMachineState {
 #define KVMPPC_H_LOGICAL_MEMOP  (KVMPPC_HCALL_BASE + 0x1)
 /* Client Architecture support */
 #define KVMPPC_H_CAS            (KVMPPC_HCALL_BASE + 0x2)
-#define KVMPPC_HCALL_MAX        KVMPPC_H_CAS
+#define KVMPPC_H_UPDATE_DT      (KVMPPC_HCALL_BASE + 0x3)
+#define KVMPPC_HCALL_MAX        KVMPPC_H_UPDATE_DT
 
 typedef struct sPAPRDeviceTreeUpdateHeader {
     uint32_t version_id;
@@ -735,6 +761,7 @@ int spapr_hpt_shift_for_ramsize(uint64_t ramsize);
 void spapr_reallocate_hpt(sPAPRMachineState *spapr, int shift,
                           Error **errp);
 void spapr_clear_pending_events(sPAPRMachineState *spapr);
+int spapr_max_server_number(sPAPRMachineState *spapr);
 
 /* CPU and LMB DRC release callbacks. */
 void spapr_core_release(DeviceState *dev);
@@ -744,8 +771,6 @@ void spapr_rtc_read(sPAPRRTCState *rtc, struct tm *tm, uint32_t *ns);
 int spapr_rtc_import_offset(sPAPRRTCState *rtc, int64_t legacy_offset);
 
 #define TYPE_SPAPR_RNG "spapr-rng"
-
-int spapr_rng_populate_dt(void *fdt);
 
 #define SPAPR_MEMORY_BLOCK_SIZE (1 << 28) /* 256MB */
 
@@ -793,6 +818,7 @@ extern const VMStateDescription vmstate_spapr_cap_dfp;
 extern const VMStateDescription vmstate_spapr_cap_cfpc;
 extern const VMStateDescription vmstate_spapr_cap_sbbc;
 extern const VMStateDescription vmstate_spapr_cap_ibs;
+extern const VMStateDescription vmstate_spapr_cap_nested_kvm_hv;
 
 static inline uint8_t spapr_get_cap(sPAPRMachineState *spapr, int cap)
 {
@@ -807,5 +833,11 @@ int spapr_caps_post_migration(sPAPRMachineState *spapr);
 
 void spapr_check_pagesize(sPAPRMachineState *spapr, hwaddr pagesize,
                           Error **errp);
+/*
+ * XIVE definitions
+ */
+#define SPAPR_OV5_XIVE_LEGACY   0x0
+#define SPAPR_OV5_XIVE_EXPLOIT  0x40
+#define SPAPR_OV5_XIVE_BOTH     0x80 /* Only to advertise on the platform */
 
 #endif /* HW_SPAPR_H */

@@ -1143,8 +1143,10 @@
 # This command is now obsolete and will always return an error since 2.10
 #
 ##
-{ 'command': 'block_passwd', 'data': {'*device': 'str',
-                                      '*node-name': 'str', 'password': 'str'} }
+{ 'command': 'block_passwd',
+  'data': { '*device': 'str',
+            '*node-name': 'str',
+            'password': 'str' } }
 
 ##
 # @block_resize:
@@ -1171,9 +1173,10 @@
 # <- { "return": {} }
 #
 ##
-{ 'command': 'block_resize', 'data': { '*device': 'str',
-                                       '*node-name': 'str',
-                                       'size': 'int' }}
+{ 'command': 'block_resize',
+  'data': { '*device': 'str',
+            '*node-name': 'str',
+            'size': 'int' } }
 
 ##
 # @NewImageMode:
@@ -1316,6 +1319,10 @@
 # @speed: the maximum speed, in bytes per second. The default is 0,
 #         for unlimited.
 #
+# @bitmap: the name of dirty bitmap if sync is "incremental".
+#          Must be present if sync is "incremental", must NOT be present
+#          otherwise. (Since 3.1)
+#
 # @compress: true to compress data, if the target format supports it.
 #            (default: false) (since 2.8)
 #
@@ -1348,7 +1355,8 @@
 ##
 { 'struct': 'BlockdevBackup',
   'data': { '*job-id': 'str', 'device': 'str', 'target': 'str',
-            'sync': 'MirrorSyncMode', '*speed': 'int', '*compress': 'bool',
+            'sync': 'MirrorSyncMode', '*speed': 'int',
+            '*bitmap': 'str', '*compress': 'bool',
             '*on-source-error': 'BlockdevOnError',
             '*on-target-error': 'BlockdevOnError',
             '*auto-finalize': 'bool', '*auto-dismiss': 'bool' } }
@@ -1658,6 +1666,114 @@
 { 'command': 'query-named-block-nodes', 'returns': [ 'BlockDeviceInfo' ] }
 
 ##
+# @XDbgBlockGraphNodeType:
+#
+# @block-backend: corresponds to BlockBackend
+#
+# @block-job: corresonds to BlockJob
+#
+# @block-driver: corresponds to BlockDriverState
+#
+# Since: 4.0
+##
+{ 'enum': 'XDbgBlockGraphNodeType',
+  'data': [ 'block-backend', 'block-job', 'block-driver' ] }
+
+##
+# @XDbgBlockGraphNode:
+#
+# @id: Block graph node identifier. This @id is generated only for
+#      x-debug-query-block-graph and does not relate to any other identifiers in
+#      Qemu.
+#
+# @type: Type of graph node. Can be one of block-backend, block-job or
+#        block-driver-state.
+#
+# @name: Human readable name of the node. Corresponds to node-name for
+#        block-driver-state nodes; is not guaranteed to be unique in the whole
+#        graph (with block-jobs and block-backends).
+#
+# Since: 4.0
+##
+{ 'struct': 'XDbgBlockGraphNode',
+  'data': { 'id': 'uint64', 'type': 'XDbgBlockGraphNodeType', 'name': 'str' } }
+
+##
+# @BlockPermission:
+#
+# Enum of base block permissions.
+#
+# @consistent-read: A user that has the "permission" of consistent reads is
+#                   guaranteed that their view of the contents of the block
+#                   device is complete and self-consistent, representing the
+#                   contents of a disk at a specific point.
+#                   For most block devices (including their backing files) this
+#                   is true, but the property cannot be maintained in a few
+#                   situations like for intermediate nodes of a commit block
+#                   job.
+#
+# @write: This permission is required to change the visible disk contents.
+#
+# @write-unchanged: This permission (which is weaker than BLK_PERM_WRITE) is
+#                   both enough and required for writes to the block node when
+#                   the caller promises that the visible disk content doesn't
+#                   change.
+#                   As the BLK_PERM_WRITE permission is strictly stronger,
+#                   either is sufficient to perform an unchanging write.
+#
+# @resize: This permission is required to change the size of a block node.
+#
+# @graph-mod: This permission is required to change the node that this
+#             BdrvChild points to.
+#
+# Since: 4.0
+##
+  { 'enum': 'BlockPermission',
+    'data': [ 'consistent-read', 'write', 'write-unchanged', 'resize',
+              'graph-mod' ] }
+##
+# @XDbgBlockGraphEdge:
+#
+# Block Graph edge description for x-debug-query-block-graph.
+#
+# @parent: parent id
+#
+# @child: child id
+#
+# @name: name of the relation (examples are 'file' and 'backing')
+#
+# @perm: granted permissions for the parent operating on the child
+#
+# @shared-perm: permissions that can still be granted to other users of the
+#               child while it is still attached to this parent
+#
+# Since: 4.0
+##
+{ 'struct': 'XDbgBlockGraphEdge',
+  'data': { 'parent': 'uint64', 'child': 'uint64',
+            'name': 'str', 'perm': [ 'BlockPermission' ],
+            'shared-perm': [ 'BlockPermission' ] } }
+
+##
+# @XDbgBlockGraph:
+#
+# Block Graph - list of nodes and list of edges.
+#
+# Since: 4.0
+##
+{ 'struct': 'XDbgBlockGraph',
+  'data': { 'nodes': ['XDbgBlockGraphNode'], 'edges': ['XDbgBlockGraphEdge'] } }
+
+##
+# @x-debug-query-block-graph:
+#
+# Get the block graph.
+#
+# Since: 4.0
+##
+{ 'command': 'x-debug-query-block-graph', 'returns': 'XDbgBlockGraph' }
+
+##
 # @drive-mirror:
 #
 # Start mirroring a block device's writes to a new destination. target
@@ -1798,29 +1914,29 @@
 #            Currently, all dirty tracking bitmaps are loaded from Qcow2 on
 #            open.
 #
-# @x-disabled: the bitmap is created in the disabled state, which means that
-#              it will not track drive changes. The bitmap may be enabled with
-#              x-block-dirty-bitmap-enable. Default is false. (Since: 3.0)
+# @disabled: the bitmap is created in the disabled state, which means that
+#            it will not track drive changes. The bitmap may be enabled with
+#            block-dirty-bitmap-enable. Default is false. (Since: 4.0)
 #
 # Since: 2.4
 ##
 { 'struct': 'BlockDirtyBitmapAdd',
   'data': { 'node': 'str', 'name': 'str', '*granularity': 'uint32',
-            '*persistent': 'bool', '*autoload': 'bool', '*x-disabled': 'bool' } }
+            '*persistent': 'bool', '*autoload': 'bool', '*disabled': 'bool' } }
 
 ##
 # @BlockDirtyBitmapMerge:
 #
 # @node: name of device/node which the bitmap is tracking
 #
-# @dst_name: name of the destination dirty bitmap
+# @target: name of the destination dirty bitmap
 #
-# @src_name: name of the source dirty bitmap
+# @bitmaps: name(s) of the source dirty bitmap(s)
 #
-# Since: 3.0
+# Since: 4.0
 ##
 { 'struct': 'BlockDirtyBitmapMerge',
-  'data': { 'node': 'str', 'dst_name': 'str', 'src_name': 'str' } }
+  'data': { 'node': 'str', 'target': 'str', 'bitmaps': ['str'] } }
 
 ##
 # @block-dirty-bitmap-add:
@@ -1891,7 +2007,7 @@
   'data': 'BlockDirtyBitmap' }
 
 ##
-# @x-block-dirty-bitmap-enable:
+# @block-dirty-bitmap-enable:
 #
 # Enables a dirty bitmap so that it will begin tracking disk changes.
 #
@@ -1899,20 +2015,20 @@
 #          If @node is not a valid block device, DeviceNotFound
 #          If @name is not found, GenericError with an explanation
 #
-# Since: 3.0
+# Since: 4.0
 #
 # Example:
 #
-# -> { "execute": "x-block-dirty-bitmap-enable",
+# -> { "execute": "block-dirty-bitmap-enable",
 #      "arguments": { "node": "drive0", "name": "bitmap0" } }
 # <- { "return": {} }
 #
 ##
-  { 'command': 'x-block-dirty-bitmap-enable',
+  { 'command': 'block-dirty-bitmap-enable',
     'data': 'BlockDirtyBitmap' }
 
 ##
-# @x-block-dirty-bitmap-disable:
+# @block-dirty-bitmap-disable:
 #
 # Disables a dirty bitmap so that it will stop tracking disk changes.
 #
@@ -1920,42 +2036,42 @@
 #          If @node is not a valid block device, DeviceNotFound
 #          If @name is not found, GenericError with an explanation
 #
-# Since: 3.0
+# Since: 4.0
 #
 # Example:
 #
-# -> { "execute": "x-block-dirty-bitmap-disable",
+# -> { "execute": "block-dirty-bitmap-disable",
 #      "arguments": { "node": "drive0", "name": "bitmap0" } }
 # <- { "return": {} }
 #
 ##
-    { 'command': 'x-block-dirty-bitmap-disable',
+    { 'command': 'block-dirty-bitmap-disable',
       'data': 'BlockDirtyBitmap' }
 
 ##
-# @x-block-dirty-bitmap-merge:
+# @block-dirty-bitmap-merge:
 #
-# FIXME: Rename @src_name and @dst_name to src-name and dst-name.
-#
-# Merge @src_name dirty bitmap to @dst_name dirty bitmap. @src_name dirty
-# bitmap is unchanged. On error, @dst_name is unchanged.
+# Merge dirty bitmaps listed in @bitmaps to the @target dirty bitmap.
+# The @bitmaps dirty bitmaps are unchanged.
+# On error, @target is unchanged.
 #
 # Returns: nothing on success
 #          If @node is not a valid block device, DeviceNotFound
-#          If @dst_name or @src_name is not found, GenericError
-#          If bitmaps has different sizes or granularities, GenericError
+#          If any bitmap in @bitmaps or @target is not found, GenericError
+#          If any of the bitmaps have different sizes or granularities,
+#              GenericError
 #
-# Since: 3.0
+# Since: 4.0
 #
 # Example:
 #
-# -> { "execute": "x-block-dirty-bitmap-merge",
-#      "arguments": { "node": "drive0", "dst_name": "bitmap0",
-#                     "src_name": "bitmap1" } }
+# -> { "execute": "block-dirty-bitmap-merge",
+#      "arguments": { "node": "drive0", "target": "bitmap0",
+#                     "bitmaps": ["bitmap1"] } }
 # <- { "return": {} }
 #
 ##
-      { 'command': 'x-block-dirty-bitmap-merge',
+      { 'command': 'block-dirty-bitmap-merge',
         'data': 'BlockDirtyBitmapMerge' }
 
 ##
@@ -2615,7 +2731,9 @@
             'copy-on-read', 'dmg', 'file', 'ftp', 'ftps', 'gluster',
             'host_cdrom', 'host_device', 'http', 'https', 'iscsi', 'luks',
             'nbd', 'nfs', 'null-aio', 'null-co', 'nvme', 'parallels', 'qcow',
-            'qcow2', 'qed', 'quorum', 'raw', 'rbd', 'replication', 'sheepdog',
+            'qcow2', 'qed', 'quorum', 'raw', 'rbd',
+            { 'name': 'replication', 'if': 'defined(CONFIG_REPLICATION)' },
+            'sheepdog',
             'ssh', 'throttle', 'vdi', 'vhdx', 'vmdk', 'vpc', 'vvfat', 'vxhs' ] }
 
 ##
@@ -3372,7 +3490,8 @@
 #
 # Since: 2.9
 ##
-{ 'enum' : 'ReplicationMode', 'data' : [ 'primary', 'secondary' ] }
+{ 'enum' : 'ReplicationMode', 'data' : [ 'primary', 'secondary' ],
+  'if': 'defined(CONFIG_REPLICATION)' }
 
 ##
 # @BlockdevOptionsReplication:
@@ -3390,7 +3509,8 @@
 { 'struct': 'BlockdevOptionsReplication',
   'base': 'BlockdevOptionsGenericFormat',
   'data': { 'mode': 'ReplicationMode',
-            '*top-id': 'str' } }
+            '*top-id': 'str' },
+  'if': 'defined(CONFIG_REPLICATION)' }
 
 ##
 # @NFSTransport:
@@ -3651,6 +3771,12 @@
 #                 either generally or in certain configurations. In this case,
 #                 the default value does not work and the option must be
 #                 specified explicitly.
+# @auto-read-only: if true and @read-only is false, QEMU may automatically
+#                  decide not to open the image read-write as requested, but
+#                  fall back to read-only instead (and switch between the modes
+#                  later), e.g. depending on whether the image file is writable
+#                  or whether a writing user is attached to the node
+#                  (default: false, since 3.1)
 # @detect-zeroes: detect and optimize zero writes (Since 2.1)
 #                 (default: off)
 # @force-share:   force share all permission on added nodes.
@@ -3666,6 +3792,7 @@
             '*discard': 'BlockdevDiscardOptions',
             '*cache': 'BlockdevCacheOptions',
             '*read-only': 'bool',
+            '*auto-read-only': 'bool',
             '*force-share': 'bool',
             '*detect-zeroes': 'BlockdevDetectZeroesOptions' },
   'discriminator': 'driver',
@@ -3699,7 +3826,8 @@
       'quorum':     'BlockdevOptionsQuorum',
       'raw':        'BlockdevOptionsRaw',
       'rbd':        'BlockdevOptionsRbd',
-      'replication':'BlockdevOptionsReplication',
+      'replication': { 'type': 'BlockdevOptionsReplication',
+                       'if': 'defined(CONFIG_REPLICATION)' },
       'sheepdog':   'BlockdevOptionsSheepdog',
       'ssh':        'BlockdevOptionsSsh',
       'throttle':   'BlockdevOptionsThrottle',
@@ -4010,6 +4138,76 @@
             '*cluster-size' :   'size' } }
 
 ##
+# @BlockdevVmdkSubformat:
+#
+# Subformat options for VMDK images
+#
+# @monolithicSparse:     Single file image with sparse cluster allocation
+#
+# @monolithicFlat:       Single flat data image and a descriptor file
+#
+# @twoGbMaxExtentSparse: Data is split into 2GB (per virtual LBA) sparse extent
+#                        files, in addition to a descriptor file
+#
+# @twoGbMaxExtentFlat:   Data is split into 2GB (per virtual LBA) flat extent
+#                        files, in addition to a descriptor file
+#
+# @streamOptimized:      Single file image sparse cluster allocation, optimized
+#                        for streaming over network.
+#
+# Since: 4.0
+##
+{ 'enum': 'BlockdevVmdkSubformat',
+  'data': [ 'monolithicSparse', 'monolithicFlat', 'twoGbMaxExtentSparse',
+            'twoGbMaxExtentFlat', 'streamOptimized'] }
+
+##
+# @BlockdevVmdkAdapterType:
+#
+# Adapter type info for VMDK images
+#
+# Since: 4.0
+##
+{ 'enum': 'BlockdevVmdkAdapterType',
+  'data': [ 'ide', 'buslogic', 'lsilogic', 'legacyESX'] }
+
+##
+# @BlockdevCreateOptionsVmdk:
+#
+# Driver specific image creation options for VMDK.
+#
+# @file         Where to store the new image file. This refers to the image
+#               file for monolithcSparse and streamOptimized format, or the
+#               descriptor file for other formats.
+# @size         Size of the virtual disk in bytes
+# @extents      Where to store the data extents. Required for monolithcFlat,
+#               twoGbMaxExtentSparse and twoGbMaxExtentFlat formats. For
+#               monolithicFlat, only one entry is required; for
+#               twoGbMaxExtent* formats, the number of entries required is
+#               calculated as extent_number = virtual_size / 2GB. Providing
+#               more extents than will be used is an error.
+# @subformat    The subformat of the VMDK image. Default: "monolithicSparse".
+# @backing-file The path of backing file. Default: no backing file is used.
+# @adapter-type The adapter type used to fill in the descriptor. Default: ide.
+# @hwversion    Hardware version. The meaningful options are "4" or "6".
+#               Default: "4".
+# @zeroed-grain Whether to enable zeroed-grain feature for sparse subformats.
+#               Default: false.
+#
+# Since: 4.0
+##
+{ 'struct': 'BlockdevCreateOptionsVmdk',
+  'data': { 'file':             'BlockdevRef',
+            'size':             'size',
+            '*extents':          ['BlockdevRef'],
+            '*subformat':       'BlockdevVmdkSubformat',
+            '*backing-file':    'str',
+            '*adapter-type':    'BlockdevVmdkAdapterType',
+            '*hwversion':       'str',
+            '*zeroed-grain':    'bool' } }
+
+
+##
 # @SheepdogRedundancyType:
 #
 # @full             Create a fully replicated vdi with x copies
@@ -4203,6 +4401,7 @@
       'ssh':            'BlockdevCreateOptionsSsh',
       'vdi':            'BlockdevCreateOptionsVdi',
       'vhdx':           'BlockdevCreateOptionsVhdx',
+      'vmdk':           'BlockdevCreateOptionsVmdk',
       'vpc':            'BlockdevCreateOptionsVpc'
   } }
 

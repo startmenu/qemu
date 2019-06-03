@@ -454,9 +454,9 @@ struct decode_x87_tbl {
 struct decode_tbl invl_inst = {0x0, 0, 0, false, NULL, NULL, NULL, NULL,
                                decode_invalid};
 
-struct decode_tbl _decode_tbl1[255];
-struct decode_tbl _decode_tbl2[255];
-struct decode_x87_tbl _decode_tbl3[255];
+struct decode_tbl _decode_tbl1[256];
+struct decode_tbl _decode_tbl2[256];
+struct decode_x87_tbl _decode_tbl3[256];
 
 static void decode_x87_ins(CPUX86State *env, struct x86_decode *decode)
 {
@@ -525,8 +525,6 @@ static void decode_sldtgroup(CPUX86State *env, struct x86_decode *decode)
         X86_DECODE_CMD_INVL
     };
     decode->cmd = group[decode->modrm.reg];
-    printf("%llx: decode_sldtgroup: %d\n", env->hvf_emul->fetch_rip,
-            decode->modrm.reg);
 }
 
 static void decode_lidtgroup(CPUX86State *env, struct x86_decode *decode)
@@ -1644,7 +1642,7 @@ void calc_modrm_operand16(CPUX86State *env, struct x86_decode *decode,
     X86Seg seg = R_DS;
 
     if (!decode->modrm.mod && 6 == decode->modrm.rm) {
-        op->ptr = (uint16_t)decode->displacement;
+        ptr = decode->displacement;
         goto calc_addr;
     }
 

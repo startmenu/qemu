@@ -227,7 +227,7 @@ static void *qpa_thread_out (void *arg)
             }
         }
 
-        decr = to_mix = audio_MIN (pa->live, pa->g->conf.samples >> 2);
+        decr = to_mix = audio_MIN(pa->live, pa->g->conf.samples >> 5);
         rpos = pa->rpos;
 
         if (audio_pt_unlock(&pa->pt, __func__)) {
@@ -319,7 +319,7 @@ static void *qpa_thread_in (void *arg)
             }
         }
 
-        incr = to_grab = audio_MIN (pa->dead, pa->g->conf.samples >> 2);
+        incr = to_grab = audio_MIN(pa->dead, pa->g->conf.samples >> 5);
         wpos = pa->wpos;
 
         if (audio_pt_unlock(&pa->pt, __func__)) {
@@ -814,6 +814,21 @@ static PAConf glob_conf = {
 
 static void *qpa_audio_init (void)
 {
+    if (glob_conf.server == NULL) {
+        char pidfile[64];
+        char *runtime;
+        struct stat st;
+
+        runtime = getenv("XDG_RUNTIME_DIR");
+        if (!runtime) {
+            return NULL;
+        }
+        snprintf(pidfile, sizeof(pidfile), "%s/pulse/pid", runtime);
+        if (stat(pidfile, &st) != 0) {
+            return NULL;
+        }
+    }
+
     paaudio *g = g_malloc(sizeof(paaudio));
     g->conf = glob_conf;
     g->mainloop = NULL;

@@ -97,7 +97,7 @@ struct NetClientState {
     unsigned rxfilter_notify_enabled:1;
     int vring_enable;
     int vnet_hdr_len;
-    QTAILQ_HEAD(NetFilterHead, NetFilterState) filters;
+    QTAILQ_HEAD(, NetFilterState) filters;
 };
 
 typedef struct NICState {
@@ -146,7 +146,7 @@ ssize_t qemu_sendv_packet(NetClientState *nc, const struct iovec *iov,
                           int iovcnt);
 ssize_t qemu_sendv_packet_async(NetClientState *nc, const struct iovec *iov,
                                 int iovcnt, NetPacketSent *sent_cb);
-void qemu_send_packet(NetClientState *nc, const uint8_t *buf, int size);
+ssize_t qemu_send_packet(NetClientState *nc, const uint8_t *buf, int size);
 ssize_t qemu_send_packet_raw(NetClientState *nc, const uint8_t *buf, int size);
 ssize_t qemu_send_packet_async(NetClientState *nc, const uint8_t *buf,
                                int size, NetPacketSent *sent_cb);
@@ -168,12 +168,6 @@ int qemu_show_nic_models(const char *arg, const char *const *models);
 void qemu_check_nic_model(NICInfo *nd, const char *model);
 int qemu_find_nic_model(NICInfo *nd, const char * const *models,
                         const char *default_model);
-
-ssize_t qemu_deliver_packet_iov(NetClientState *sender,
-                            unsigned flags,
-                            const struct iovec *iov,
-                            int iovcnt,
-                            void *opaque);
 
 void print_net_client(Monitor *mon, NetClientState *nc);
 void hmp_info_network(Monitor *mon, const QDict *qdict);

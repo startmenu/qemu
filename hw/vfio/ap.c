@@ -10,9 +10,9 @@
  * directory.
  */
 
+#include "qemu/osdep.h"
 #include <linux/vfio.h>
 #include <sys/ioctl.h>
-#include "qemu/osdep.h"
 #include "qapi/error.h"
 #include "hw/sysbus.h"
 #include "hw/vfio/vfio.h"
@@ -104,6 +104,14 @@ static void vfio_ap_realize(DeviceState *dev, Error **errp)
     vapdev->vdev.name = g_strdup_printf("%s", mdevid);
     vapdev->vdev.dev = dev;
 
+    /*
+     * vfio-ap devices operate in a way compatible with
+     * memory ballooning, as no pages are pinned in the host.
+     * This needs to be set before vfio_get_device() for vfio common to
+     * handle the balloon inhibitor.
+     */
+    vapdev->vdev.balloon_allowed = true;
+
     ret = vfio_get_device(vfio_group, mdevid, &vapdev->vdev, &local_err);
     if (ret) {
         goto out_get_dev_err;
@@ -142,7 +150,7 @@ static void vfio_ap_reset(DeviceState *dev)
     ret = ioctl(vapdev->vdev.fd, VFIO_DEVICE_RESET);
     if (ret) {
         error_report("%s: failed to reset %s device: %s", __func__,
-                     vapdev->vdev.name, strerror(ret));
+                     vapdev->vdev.name, strerror(errno));
     }
 }
 

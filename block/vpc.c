@@ -187,7 +187,7 @@ static uint32_t vpc_checksum(uint8_t* buf, size_t size)
 static int vpc_probe(const uint8_t *buf, int buf_size, const char *filename)
 {
     if (buf_size >= 8 && !strncmp((char *)buf, "conectix", 8))
-	return 100;
+        return 100;
     return 0;
 }
 
@@ -456,10 +456,12 @@ static int vpc_open(BlockDriverState *bs, QDict *options, int flags,
     }
 
     qemu_co_mutex_init(&s->lock);
+    qemu_opts_del(opts);
 
     return 0;
 
 fail:
+    qemu_opts_del(opts);
     qemu_vfree(s->pagetable);
 #ifdef CACHE
     g_free(s->pageentry_u8);
@@ -977,6 +979,7 @@ static int coroutine_fn vpc_co_create(BlockdevCreateOptions *opts,
     int64_t total_size;
     int disk_type;
     int ret = -EIO;
+    QemuUUID uuid;
 
     assert(opts->driver == BLOCKDEV_DRIVER_VPC);
     vpc_opts = &opts->u.vpc;
@@ -1060,7 +1063,8 @@ static int coroutine_fn vpc_co_create(BlockdevCreateOptions *opts,
 
     footer->type = cpu_to_be32(disk_type);
 
-    qemu_uuid_generate(&footer->uuid);
+    qemu_uuid_generate(&uuid);
+    footer->uuid = uuid;
 
     footer->checksum = cpu_to_be32(vpc_checksum(buf, HEADER_SIZE));
 

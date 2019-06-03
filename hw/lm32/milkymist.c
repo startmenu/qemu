@@ -32,6 +32,7 @@
 #include "hw/loader.h"
 #include "elf.h"
 #include "milkymist-hw.h"
+#include "hw/display/milkymist_tmu2.h"
 #include "lm32.h"
 #include "exec/address-spaces.h"
 
@@ -138,7 +139,10 @@ milkymist_init(MachineState *machine)
     bios_filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
 
     if (bios_filename) {
-        load_image_targphys(bios_filename, BIOS_OFFSET, BIOS_SIZE);
+        if (load_image_targphys(bios_filename, BIOS_OFFSET, BIOS_SIZE) < 0) {
+            error_report("could not load bios '%s'", bios_filename);
+            exit(1);
+        }
     }
 
     reset_info->bootstrap_pc = BIOS_OFFSET;
@@ -172,7 +176,8 @@ milkymist_init(MachineState *machine)
         uint64_t entry;
 
         /* Boots a kernel elf binary.  */
-        kernel_size = load_elf(kernel_filename, NULL, NULL, &entry, NULL, NULL,
+        kernel_size = load_elf(kernel_filename, NULL, NULL, NULL,
+                               &entry, NULL, NULL,
                                1, EM_LATTICEMICO32, 0, 0);
         reset_info->bootstrap_pc = entry;
 

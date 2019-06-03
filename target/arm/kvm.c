@@ -158,6 +158,7 @@ void kvm_arm_set_cpu_features_from_host(ARMCPU *cpu)
 
     cpu->kvm_target = arm_host_cpu_features.target;
     cpu->dtb_compatible = arm_host_cpu_features.dtb_compatible;
+    cpu->isar = arm_host_cpu_features.isar;
     env->features = arm_host_cpu_features.features;
 }
 
@@ -205,7 +206,7 @@ typedef struct KVMDevice {
     int dev_fd;
 } KVMDevice;
 
-static QSLIST_HEAD(kvm_devices_head, KVMDevice) kvm_devices_head;
+static QSLIST_HEAD(, KVMDevice) kvm_devices_head;
 
 static void kvm_arm_devlistener_add(MemoryListener *listener,
                                     MemoryRegionSection *section)

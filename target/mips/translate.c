@@ -1399,10 +1399,12 @@ enum {
 
 
 /*
- *    AN OVERVIEW OF MXU EXTENSION INSTRUCTION SET
- *    ============================================
  *
- * MXU (full name: MIPS eXtension/enhanced Unit) is an SIMD extension of MIPS32
+ *       AN OVERVIEW OF MXU EXTENSION INSTRUCTION SET
+ *       ============================================
+ *
+ *
+ * MXU (full name: MIPS eXtension/enhanced Unit) is a SIMD extension of MIPS32
  * instructions set. It is designed to fit the needs of signal, graphical and
  * video processing applications. MXU instruction set is used in Xburst family
  * of microprocessors by Ingenic.
@@ -1410,25 +1412,94 @@ enum {
  * MXU unit contains 17 registers called X0-X16. X0 is always zero, and X16 is
  * the control register.
  *
- * The notation used in MXU assembler mnemonics:
+ *
+ *     The notation used in MXU assembler mnemonics
+ *     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ *  Register operands:
  *
  *   XRa, XRb, XRc, XRd - MXU registers
  *   Rb, Rc, Rd, Rs, Rt - general purpose MIPS registers
- *   s12                - a subfield of an instruction code
- *   strd2              - a subfield of an instruction code
- *   eptn2              - a subfield of an instruction code
- *   eptn3              - a subfield of an instruction code
- *   optn2              - a subfield of an instruction code
- *   optn3              - a subfield of an instruction code
- *   sft4               - a subfield of an instruction code
+ *
+ *  Non-register operands:
+ *
+ *   aptn1 - 1-bit accumulate add/subtract pattern
+ *   aptn2 - 2-bit accumulate add/subtract pattern
+ *   eptn2 - 2-bit execute add/subtract pattern
+ *   optn2 - 2-bit operand pattern
+ *   optn3 - 3-bit operand pattern
+ *   sft4  - 4-bit shift amount
+ *   strd2 - 2-bit stride amount
+ *
+ *  Prefixes:
+ *
+ *   Level of parallelism:                Operand size:
+ *    S - single operation at a time       32 - word
+ *    D - two operations in parallel       16 - half word
+ *    Q - four operations in parallel       8 - byte
+ *
+ *  Operations:
+ *
+ *   ADD   - Add or subtract
+ *   ADDC  - Add with carry-in
+ *   ACC   - Accumulate
+ *   ASUM  - Sum together then accumulate (add or subtract)
+ *   ASUMC - Sum together then accumulate (add or subtract) with carry-in
+ *   AVG   - Average between 2 operands
+ *   ABD   - Absolute difference
+ *   ALN   - Align data
+ *   AND   - Logical bitwise 'and' operation
+ *   CPS   - Copy sign
+ *   EXTR  - Extract bits
+ *   I2M   - Move from GPR register to MXU register
+ *   LDD   - Load data from memory to XRF
+ *   LDI   - Load data from memory to XRF (and increase the address base)
+ *   LUI   - Load unsigned immediate
+ *   MUL   - Multiply
+ *   MULU  - Unsigned multiply
+ *   MADD  - 64-bit operand add 32x32 product
+ *   MSUB  - 64-bit operand subtract 32x32 product
+ *   MAC   - Multiply and accumulate (add or subtract)
+ *   MAD   - Multiply and add or subtract
+ *   MAX   - Maximum between 2 operands
+ *   MIN   - Minimum between 2 operands
+ *   M2I   - Move from MXU register to GPR register
+ *   MOVZ  - Move if zero
+ *   MOVN  - Move if non-zero
+ *   NOR   - Logical bitwise 'nor' operation
+ *   OR    - Logical bitwise 'or' operation
+ *   STD   - Store data from XRF to memory
+ *   SDI   - Store data from XRF to memory (and increase the address base)
+ *   SLT   - Set of less than comparison
+ *   SAD   - Sum of absolute differences
+ *   SLL   - Logical shift left
+ *   SLR   - Logical shift right
+ *   SAR   - Arithmetic shift right
+ *   SAT   - Saturation
+ *   SFL   - Shuffle
+ *   SCOP  - Calculate x’s scope (-1, means x<0; 0, means x==0; 1, means x>0)
+ *   XOR   - Logical bitwise 'exclusive or' operation
+ *
+ *  Suffixes:
+ *
+ *   E - Expand results
+ *   F - Fixed point multiplication
+ *   L - Low part result
+ *   R - Doing rounding
+ *   V - Variable instead of immediate
+ *   W - Combine above L and V
+ *
+ *
+ *     The list of MXU instructions grouped by functionality
+ *     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  *
  * Load/Store instructions           Multiplication instructions
  * -----------------------           ---------------------------
  *
  *  S32LDD XRa, Rb, s12               S32MADD XRa, XRd, Rs, Rt
  *  S32STD XRa, Rb, s12               S32MADDU XRa, XRd, Rs, Rt
- *  S32LDDV XRa, Rb, rc, strd2        S32SUB XRa, XRd, Rs, Rt
- *  S32STDV XRa, Rb, rc, strd2        S32SUBU XRa, XRd, Rs, Rt
+ *  S32LDDV XRa, Rb, rc, strd2        S32MSUB XRa, XRd, Rs, Rt
+ *  S32STDV XRa, Rb, rc, strd2        S32MSUBU XRa, XRd, Rs, Rt
  *  S32LDI XRa, Rb, s12               S32MUL XRa, XRd, Rs, Rt
  *  S32SDI XRa, Rb, s12               S32MULU XRa, XRd, Rs, Rt
  *  S32LDIV XRa, Rb, rc, strd2        D16MUL XRa, XRb, XRc, XRd, optn2
@@ -1486,7 +1557,7 @@ enum {
  *  S32OR XRa, XRb, XRc               D32SARW XRa, XRb, XRc, Rb
  *                                    Q16SLL XRa, XRb, XRc, XRd, sft4
  *                                    Q16SLR XRa, XRb, XRc, XRd, sft4
- * Miscelaneous instructions          Q16SAR XRa, XRb, XRc, XRd, sft4
+ * Miscellaneous instructions         Q16SAR XRa, XRb, XRc, XRd, sft4
  * -------------------------          Q16SLLV XRa, XRb, Rb
  *                                    Q16SLRV XRa, XRb, Rb
  *  S32SFL XRa, XRb, XRc, XRd, optn2  Q16SARV XRa, XRb, Rb
@@ -1499,12 +1570,20 @@ enum {
  *  Q16SAT XRa, XRb, XRc              S32I2M XRa, Rb
  *
  *
+ *     The opcode organization of MXU instructions
+ *     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ * The bits 31..26 of all MXU instructions are equal to 0x1C (also referred
+ * as opcode SPECIAL2 in the base MIPS ISA). The organization and meaning of
+ * other bits up to the instruction level is as follows:
+ *
  *              bits
  *             05..00
  *
  *          ┌─ 000000 ─ OPC_MXU_S32MADD
  *          ├─ 000001 ─ OPC_MXU_S32MADDU
- *          ├─ 000010 ─ <not assigned>
+ *          ├─ 000010 ─ <not assigned>   (non-MXU OPC_MUL)
+ *          │
  *          │                               20..18
  *          ├─ 000011 ─ OPC_MXU__POOL00 ─┬─ 000 ─ OPC_MXU_S32MAX
  *          │                            ├─ 001 ─ OPC_MXU_S32MIN
@@ -1536,100 +1615,94 @@ enum {
  *          ├─ 001010 ─ OPC_MXU_D16MAC
  *          ├─ 001011 ─ OPC_MXU_D16MACF
  *          ├─ 001100 ─ OPC_MXU_D16MADL
- *          │                               25..24
- *          ├─ 001101 ─ OPC_MXU__POOL04 ─┬─ 00 ─ OPC_MXU_S16MAD
- *          │                            └─ 01 ─ OPC_MXU_S16MAD_1
+ *          ├─ 001101 ─ OPC_MXU_S16MAD
  *          ├─ 001110 ─ OPC_MXU_Q16ADD
- *          ├─ 001111 ─ OPC_MXU_D16MACE
- *          │                               23
- *          ├─ 010000 ─ OPC_MXU__POOL05 ─┬─ 0 ─ OPC_MXU_S32LDD
- *          │                            └─ 1 ─ OPC_MXU_S32LDDR
+ *          ├─ 001111 ─ OPC_MXU_D16MACE     23
+ *          │                            ┌─ 0 ─ OPC_MXU_S32LDD
+ *          ├─ 010000 ─ OPC_MXU__POOL04 ─┴─ 1 ─ OPC_MXU_S32LDDR
  *          │
  *          │                               23
- *          ├─ 010001 ─ OPC_MXU__POOL06 ─┬─ 0 ─ OPC_MXU_S32STD
+ *          ├─ 010001 ─ OPC_MXU__POOL05 ─┬─ 0 ─ OPC_MXU_S32STD
  *          │                            └─ 1 ─ OPC_MXU_S32STDR
  *          │
  *          │                               13..10
- *          ├─ 010010 ─ OPC_MXU__POOL07 ─┬─ 0000 ─ OPC_MXU_S32LDDV
+ *          ├─ 010010 ─ OPC_MXU__POOL06 ─┬─ 0000 ─ OPC_MXU_S32LDDV
  *          │                            └─ 0001 ─ OPC_MXU_S32LDDVR
  *          │
  *          │                               13..10
- *          ├─ 010011 ─ OPC_MXU__POOL08 ─┬─ 0000 ─ OPC_MXU_S32STDV
+ *          ├─ 010011 ─ OPC_MXU__POOL07 ─┬─ 0000 ─ OPC_MXU_S32STDV
  *          │                            └─ 0001 ─ OPC_MXU_S32STDVR
  *          │
  *          │                               23
- *          ├─ 010100 ─ OPC_MXU__POOL09 ─┬─ 0 ─ OPC_MXU_S32LDI
+ *          ├─ 010100 ─ OPC_MXU__POOL08 ─┬─ 0 ─ OPC_MXU_S32LDI
  *          │                            └─ 1 ─ OPC_MXU_S32LDIR
  *          │
  *          │                               23
- *          ├─ 010101 ─ OPC_MXU__POOL10 ─┬─ 0 ─ OPC_MXU_S32SDI
+ *          ├─ 010101 ─ OPC_MXU__POOL09 ─┬─ 0 ─ OPC_MXU_S32SDI
  *          │                            └─ 1 ─ OPC_MXU_S32SDIR
  *          │
  *          │                               13..10
- *          ├─ 010110 ─ OPC_MXU__POOL11 ─┬─ 0000 ─ OPC_MXU_S32LDIV
+ *          ├─ 010110 ─ OPC_MXU__POOL10 ─┬─ 0000 ─ OPC_MXU_S32LDIV
  *          │                            └─ 0001 ─ OPC_MXU_S32LDIVR
  *          │
  *          │                               13..10
- *          ├─ 010111 ─ OPC_MXU__POOL12 ─┬─ 0000 ─ OPC_MXU_S32SDIV
+ *          ├─ 010111 ─ OPC_MXU__POOL11 ─┬─ 0000 ─ OPC_MXU_S32SDIV
  *          │                            └─ 0001 ─ OPC_MXU_S32SDIVR
  *          ├─ 011000 ─ OPC_MXU_D32ADD
  *          │                               23..22
- *   MXU    ├─ 011001 ─ OPC_MXU__POOL13 ─┬─ 00 ─ OPC_MXU_D32ACC
+ *   MXU    ├─ 011001 ─ OPC_MXU__POOL12 ─┬─ 00 ─ OPC_MXU_D32ACC
  * opcodes ─┤                            ├─ 01 ─ OPC_MXU_D32ACCM
  *          │                            └─ 10 ─ OPC_MXU_D32ASUM
  *          ├─ 011010 ─ <not assigned>
  *          │                               23..22
- *          ├─ 011011 ─ OPC_MXU__POOL14 ─┬─ 00 ─ OPC_MXU_Q16ACC
+ *          ├─ 011011 ─ OPC_MXU__POOL13 ─┬─ 00 ─ OPC_MXU_Q16ACC
  *          │                            ├─ 01 ─ OPC_MXU_Q16ACCM
  *          │                            └─ 10 ─ OPC_MXU_Q16ASUM
  *          │
  *          │                               23..22
- *          ├─ 011100 ─ OPC_MXU__POOL15 ─┬─ 00 ─ OPC_MXU_Q8ADDE
+ *          ├─ 011100 ─ OPC_MXU__POOL14 ─┬─ 00 ─ OPC_MXU_Q8ADDE
  *          │                            ├─ 01 ─ OPC_MXU_D8SUM
  *          ├─ 011101 ─ OPC_MXU_Q8ACCE   └─ 10 ─ OPC_MXU_D8SUMC
  *          ├─ 011110 ─ <not assigned>
  *          ├─ 011111 ─ <not assigned>
- *          ├─ 100000 ─ <not assigned>
- *          ├─ 100001 ─ <not assigned>
+ *          ├─ 100000 ─ <not assigned>   (overlaps with CLZ)
+ *          ├─ 100001 ─ <not assigned>   (overlaps with CLO)
  *          ├─ 100010 ─ OPC_MXU_S8LDD
- *          ├─ 100011 ─ OPC_MXU_S8STD
- *          ├─ 100100 ─ OPC_MXU_S8LDI
- *          ├─ 100101 ─ OPC_MXU_S8SDI
- *          │                               15..14
- *          ├─ 100110 ─ OPC_MXU__POOL16 ─┬─ 00 ─ OPC_MXU_S32MUL
- *          │                            ├─ 00 ─ OPC_MXU_S32MULU
+ *          ├─ 100011 ─ OPC_MXU_S8STD       15..14
+ *          ├─ 100100 ─ OPC_MXU_S8LDI    ┌─ 00 ─ OPC_MXU_S32MUL
+ *          ├─ 100101 ─ OPC_MXU_S8SDI    ├─ 00 ─ OPC_MXU_S32MULU
  *          │                            ├─ 00 ─ OPC_MXU_S32EXTR
- *          │                            └─ 00 ─ OPC_MXU_S32EXTRV
+ *          ├─ 100110 ─ OPC_MXU__POOL15 ─┴─ 00 ─ OPC_MXU_S32EXTRV
  *          │
  *          │                               20..18
- *          ├─ 100111 ─ OPC_MXU__POOL17 ─┬─ 000 ─ OPC_MXU_D32SARW
+ *          ├─ 100111 ─ OPC_MXU__POOL16 ─┬─ 000 ─ OPC_MXU_D32SARW
  *          │                            ├─ 001 ─ OPC_MXU_S32ALN
- *          ├─ 101000 ─ OPC_MXU_LXB      ├─ 010 ─ OPC_MXU_S32ALNI
- *          ├─ 101001 ─ <not assigned>   ├─ 011 ─ OPC_MXU_S32NOR
- *          ├─ 101010 ─ OPC_MXU_S16LDD   ├─ 100 ─ OPC_MXU_S32AND
- *          ├─ 101011 ─ OPC_MXU_S16STD   ├─ 101 ─ OPC_MXU_S32OR
- *          ├─ 101100 ─ OPC_MXU_S16LDI   ├─ 110 ─ OPC_MXU_S32XOR
- *          ├─ 101101 ─ OPC_MXU_S16SDI   └─ 111 ─ OPC_MXU_S32LUI
- *          ├─ 101000 ─ <not assigned>
- *          ├─ 101001 ─ <not assigned>
- *          ├─ 101010 ─ <not assigned>
- *          ├─ 101011 ─ <not assigned>
- *          ├─ 101100 ─ <not assigned>
- *          ├─ 101101 ─ <not assigned>
+ *          │                            ├─ 010 ─ OPC_MXU_S32ALNI
+ *          │                            ├─ 011 ─ OPC_MXU_S32LUI
+ *          │                            ├─ 100 ─ OPC_MXU_S32NOR
+ *          │                            ├─ 101 ─ OPC_MXU_S32AND
+ *          │                            ├─ 110 ─ OPC_MXU_S32OR
+ *          │                            └─ 111 ─ OPC_MXU_S32XOR
+ *          │
+ *          │                               7..5
+ *          ├─ 101000 ─ OPC_MXU__POOL17 ─┬─ 000 ─ OPC_MXU_LXB
+ *          │                            ├─ 001 ─ OPC_MXU_LXH
+ *          ├─ 101001 ─ <not assigned>   ├─ 011 ─ OPC_MXU_LXW
+ *          ├─ 101010 ─ OPC_MXU_S16LDD   ├─ 100 ─ OPC_MXU_LXBU
+ *          ├─ 101011 ─ OPC_MXU_S16STD   └─ 101 ─ OPC_MXU_LXHU
+ *          ├─ 101100 ─ OPC_MXU_S16LDI
+ *          ├─ 101101 ─ OPC_MXU_S16SDI
  *          ├─ 101110 ─ OPC_MXU_S32M2I
  *          ├─ 101111 ─ OPC_MXU_S32I2M
  *          ├─ 110000 ─ OPC_MXU_D32SLL
- *          ├─ 110001 ─ OPC_MXU_D32SLR
- *          ├─ 110010 ─ OPC_MXU_D32SARL
- *          ├─ 110011 ─ OPC_MXU_D32SAR
- *          ├─ 110100 ─ OPC_MXU_Q16SLL
- *          ├─ 110101 ─ OPC_MXU_Q16SLR      20..18
- *          ├─ 110110 ─ OPC_MXU__POOL18 ─┬─ 000 ─ OPC_MXU_D32SLLV
- *          │                            ├─ 001 ─ OPC_MXU_D32SLRV
- *          │                            ├─ 010 ─ OPC_MXU_D32SARV
- *          │                            ├─ 011 ─ OPC_MXU_Q16SLLV
+ *          ├─ 110001 ─ OPC_MXU_D32SLR      20..18
+ *          ├─ 110010 ─ OPC_MXU_D32SARL  ┌─ 000 ─ OPC_MXU_D32SLLV
+ *          ├─ 110011 ─ OPC_MXU_D32SAR   ├─ 001 ─ OPC_MXU_D32SLRV
+ *          ├─ 110100 ─ OPC_MXU_Q16SLL   ├─ 010 ─ OPC_MXU_D32SARV
+ *          ├─ 110101 ─ OPC_MXU_Q16SLR   ├─ 011 ─ OPC_MXU_Q16SLLV
  *          │                            ├─ 100 ─ OPC_MXU_Q16SLRV
- *          │                            └─ 101 ─ OPC_MXU_Q16SARV
+ *          ├─ 110110 ─ OPC_MXU__POOL18 ─┴─ 101 ─ OPC_MXU_Q16SARV
+ *          │
  *          ├─ 110111 ─ OPC_MXU_Q16SAR
  *          │                               23..22
  *          ├─ 111000 ─ OPC_MXU__POOL19 ─┬─ 00 ─ OPC_MXU_Q8MUL
@@ -1641,7 +1714,7 @@ enum {
  *          │                            ├─ 010 ─ OPC_MXU_D16MOVZ
  *          │                            ├─ 011 ─ OPC_MXU_D16MOVN
  *          │                            ├─ 100 ─ OPC_MXU_S32MOVZ
- *          │                            └─ 101 ─ OPC_MXU_S32MOV
+ *          │                            └─ 101 ─ OPC_MXU_S32MOVN
  *          │
  *          │                               23..22
  *          ├─ 111010 ─ OPC_MXU__POOL21 ─┬─ 00 ─ OPC_MXU_Q8MAC
@@ -1650,19 +1723,19 @@ enum {
  *          ├─ 111100 ─ OPC_MXU_Q8MADL
  *          ├─ 111101 ─ OPC_MXU_S32SFL
  *          ├─ 111110 ─ OPC_MXU_Q8SAD
- *          └─ 111111 ─ <not assigned>
+ *          └─ 111111 ─ <not assigned>   (overlaps with SDBBP)
  *
  *
- *   Compiled after:
+ * Compiled after:
  *
  *   "XBurst® Instruction Set Architecture MIPS eXtension/enhanced Unit
- *   Programming Manual", Ingenic Semiconductor Co, Ltd., 2017
+ *   Programming Manual", Ingenic Semiconductor Co, Ltd., revision June 2, 2017
  */
 
 enum {
     OPC_MXU_S32MADD  = 0x00,
     OPC_MXU_S32MADDU = 0x01,
-    /* not assigned 0x02 */
+    OPC__MXU_MUL     = 0x02,
     OPC_MXU__POOL00  = 0x03,
     OPC_MXU_S32MSUB  = 0x04,
     OPC_MXU_S32MSUBU = 0x05,
@@ -1673,22 +1746,22 @@ enum {
     OPC_MXU_D16MAC   = 0x0A,
     OPC_MXU_D16MACF  = 0x0B,
     OPC_MXU_D16MADL  = 0x0C,
-    OPC_MXU__POOL04  = 0x0D,
+    OPC_MXU_S16MAD   = 0x0D,
     OPC_MXU_Q16ADD   = 0x0E,
     OPC_MXU_D16MACE  = 0x0F,
-    OPC_MXU__POOL05  = 0x10,
-    OPC_MXU__POOL06  = 0x11,
-    OPC_MXU__POOL07  = 0x12,
-    OPC_MXU__POOL08  = 0x13,
-    OPC_MXU__POOL09  = 0x14,
-    OPC_MXU__POOL10  = 0x15,
-    OPC_MXU__POOL11  = 0x16,
-    OPC_MXU__POOL12  = 0x17,
+    OPC_MXU__POOL04  = 0x10,
+    OPC_MXU__POOL05  = 0x11,
+    OPC_MXU__POOL06  = 0x12,
+    OPC_MXU__POOL07  = 0x13,
+    OPC_MXU__POOL08  = 0x14,
+    OPC_MXU__POOL09  = 0x15,
+    OPC_MXU__POOL10  = 0x16,
+    OPC_MXU__POOL11  = 0x17,
     OPC_MXU_D32ADD   = 0x18,
-    OPC_MXU__POOL13  = 0x19,
+    OPC_MXU__POOL12  = 0x19,
     /* not assigned 0x1A */
-    OPC_MXU__POOL14  = 0x1B,
-    OPC_MXU__POOL15  = 0x1C,
+    OPC_MXU__POOL13  = 0x1B,
+    OPC_MXU__POOL14  = 0x1C,
     OPC_MXU_Q8ACCE   = 0x1D,
     /* not assigned 0x1E */
     /* not assigned 0x1F */
@@ -1698,9 +1771,9 @@ enum {
     OPC_MXU_S8STD    = 0x23,
     OPC_MXU_S8LDI    = 0x24,
     OPC_MXU_S8SDI    = 0x25,
-    OPC_MXU__POOL16  = 0x26,
-    OPC_MXU__POOL17  = 0x27,
-    OPC_MXU_LXB      = 0x28,
+    OPC_MXU__POOL15  = 0x26,
+    OPC_MXU__POOL16  = 0x27,
+    OPC_MXU__POOL17  = 0x28,
     /* not assigned 0x29 */
     OPC_MXU_S16LDD   = 0x2A,
     OPC_MXU_S16STD   = 0x2B,
@@ -1776,20 +1849,12 @@ enum {
  * MXU pool 04
  */
 enum {
-    OPC_MXU_S16MAD   = 0x00,
-    OPC_MXU_S16MAD_1 = 0x01,
-};
-
-/*
- * MXU pool 05
- */
-enum {
     OPC_MXU_S32LDD   = 0x00,
     OPC_MXU_S32LDDR  = 0x01,
 };
 
 /*
- * MXU pool 06
+ * MXU pool 05
  */
 enum {
     OPC_MXU_S32STD   = 0x00,
@@ -1797,7 +1862,7 @@ enum {
 };
 
 /*
- * MXU pool 07
+ * MXU pool 06
  */
 enum {
     OPC_MXU_S32LDDV  = 0x00,
@@ -1805,7 +1870,7 @@ enum {
 };
 
 /*
- * MXU pool 08
+ * MXU pool 07
  */
 enum {
     OPC_MXU_S32STDV  = 0x00,
@@ -1813,7 +1878,7 @@ enum {
 };
 
 /*
- * MXU pool 09
+ * MXU pool 08
  */
 enum {
     OPC_MXU_S32LDI   = 0x00,
@@ -1821,7 +1886,7 @@ enum {
 };
 
 /*
- * MXU pool 10
+ * MXU pool 09
  */
 enum {
     OPC_MXU_S32SDI   = 0x00,
@@ -1829,7 +1894,7 @@ enum {
 };
 
 /*
- * MXU pool 11
+ * MXU pool 10
  */
 enum {
     OPC_MXU_S32LDIV  = 0x00,
@@ -1837,7 +1902,7 @@ enum {
 };
 
 /*
- * MXU pool 12
+ * MXU pool 11
  */
 enum {
     OPC_MXU_S32SDIV  = 0x00,
@@ -1845,7 +1910,7 @@ enum {
 };
 
 /*
- * MXU pool 13
+ * MXU pool 12
  */
 enum {
     OPC_MXU_D32ACC   = 0x00,
@@ -1854,7 +1919,7 @@ enum {
 };
 
 /*
- * MXU pool 14
+ * MXU pool 13
  */
 enum {
     OPC_MXU_Q16ACC   = 0x00,
@@ -1863,7 +1928,7 @@ enum {
 };
 
 /*
- * MXU pool 15
+ * MXU pool 14
  */
 enum {
     OPC_MXU_Q8ADDE   = 0x00,
@@ -1872,7 +1937,7 @@ enum {
 };
 
 /*
- * MXU pool 16
+ * MXU pool 15
  */
 enum {
     OPC_MXU_S32MUL   = 0x00,
@@ -1882,17 +1947,28 @@ enum {
 };
 
 /*
- * MXU pool 17
+ * MXU pool 16
  */
 enum {
     OPC_MXU_D32SARW  = 0x00,
     OPC_MXU_S32ALN   = 0x01,
     OPC_MXU_S32ALNI  = 0x02,
-    OPC_MXU_S32NOR   = 0x03,
-    OPC_MXU_S32AND   = 0x04,
-    OPC_MXU_S32OR    = 0x05,
-    OPC_MXU_S32XOR   = 0x06,
-    OPC_MXU_S32LUI   = 0x07,
+    OPC_MXU_S32LUI   = 0x03,
+    OPC_MXU_S32NOR   = 0x04,
+    OPC_MXU_S32AND   = 0x05,
+    OPC_MXU_S32OR    = 0x06,
+    OPC_MXU_S32XOR   = 0x07,
+};
+
+/*
+ * MXU pool 17
+ */
+enum {
+    OPC_MXU_LXB      = 0x00,
+    OPC_MXU_LXH      = 0x01,
+    OPC_MXU_LXW      = 0x03,
+    OPC_MXU_LXBU     = 0x04,
+    OPC_MXU_LXHU     = 0x05,
 };
 
 /*
@@ -2096,10 +2172,10 @@ enum {
  * MTSAH   rs, immediate     Move Halfword Count to Shift Amount Register
  * PROT3W  rd, rt            Parallel Rotate 3 Words
  *
- *     The TX79-specific Multimedia Instruction encodings
- *     ==================================================
+ *     MMI (MultiMedia Instruction) encodings
+ *     ======================================
  *
- * TX79 Multimedia Instruction encoding table keys:
+ * MMI instructions encoding table keys:
  *
  *     *   This code is reserved for future use. An attempt to execute it
  *         causes a Reserved Instruction exception.
@@ -2110,7 +2186,7 @@ enum {
  *         DMULTU, DDIV, DDIVU, LL, LLD, SC, SCD, LWC2 and SWC2. An attempt
  *         to execute it causes a Reserved Instruction exception.
  *
- * TX79 Multimedia Instructions encoded by opcode field (MMI, LQ, SQ):
+ * MMI instructions encoded by opcode field (MMI, LQ, SQ):
  *
  *  31    26                                        0
  * +--------+----------------------------------------+
@@ -2132,13 +2208,13 @@ enum {
  */
 
 enum {
-    TX79_CLASS_MMI = 0x1C << 26,    /* Same as OPC_SPECIAL2 */
-    TX79_LQ        = 0x1E << 26,    /* Same as OPC_MSA */
-    TX79_SQ        = 0x1F << 26,    /* Same as OPC_SPECIAL3 */
+    MMI_OPC_CLASS_MMI = 0x1C << 26,    /* Same as OPC_SPECIAL2 */
+    MMI_OPC_LQ        = 0x1E << 26,    /* Same as OPC_MSA */
+    MMI_OPC_SQ        = 0x1F << 26,    /* Same as OPC_SPECIAL3 */
 };
 
 /*
- * TX79 Multimedia Instructions with opcode field = MMI:
+ * MMI instructions with opcode field = MMI:
  *
  *  31    26                                 5      0
  * +--------+-------------------------------+--------+
@@ -2159,37 +2235,37 @@ enum {
  *    7 111 |   *   |   *   |   *   |   *   | PSLLW |   *   | PSRLW | PSRAW
  */
 
-#define MASK_TX79_MMI(op) (MASK_OP_MAJOR(op) | ((op) & 0x3F))
+#define MASK_MMI(op) (MASK_OP_MAJOR(op) | ((op) & 0x3F))
 enum {
-    TX79_MMI_MADD       = 0x00 | TX79_CLASS_MMI, /* Same as OPC_MADD */
-    TX79_MMI_MADDU      = 0x01 | TX79_CLASS_MMI, /* Same as OPC_MADDU */
-    TX79_MMI_PLZCW      = 0x04 | TX79_CLASS_MMI,
-    TX79_MMI_CLASS_MMI0 = 0x08 | TX79_CLASS_MMI,
-    TX79_MMI_CLASS_MMI2 = 0x09 | TX79_CLASS_MMI,
-    TX79_MMI_MFHI1      = 0x10 | TX79_CLASS_MMI, /* Same minor as OPC_MFHI */
-    TX79_MMI_MTHI1      = 0x11 | TX79_CLASS_MMI, /* Same minor as OPC_MTHI */
-    TX79_MMI_MFLO1      = 0x12 | TX79_CLASS_MMI, /* Same minor as OPC_MFLO */
-    TX79_MMI_MTLO1      = 0x13 | TX79_CLASS_MMI, /* Same minor as OPC_MTLO */
-    TX79_MMI_MULT1      = 0x18 | TX79_CLASS_MMI, /* Same minor as OPC_MULT */
-    TX79_MMI_MULTU1     = 0x19 | TX79_CLASS_MMI, /* Same minor as OPC_MULTU */
-    TX79_MMI_DIV1       = 0x1A | TX79_CLASS_MMI, /* Same minor as OPC_DIV */
-    TX79_MMI_DIVU1      = 0x1B | TX79_CLASS_MMI, /* Same minor as OPC_DIVU */
-    TX79_MMI_MADD1      = 0x20 | TX79_CLASS_MMI,
-    TX79_MMI_MADDU1     = 0x21 | TX79_CLASS_MMI,
-    TX79_MMI_CLASS_MMI1 = 0x28 | TX79_CLASS_MMI,
-    TX79_MMI_CLASS_MMI3 = 0x29 | TX79_CLASS_MMI,
-    TX79_MMI_PMFHL      = 0x30 | TX79_CLASS_MMI,
-    TX79_MMI_PMTHL      = 0x31 | TX79_CLASS_MMI,
-    TX79_MMI_PSLLH      = 0x34 | TX79_CLASS_MMI,
-    TX79_MMI_PSRLH      = 0x36 | TX79_CLASS_MMI,
-    TX79_MMI_PSRAH      = 0x37 | TX79_CLASS_MMI,
-    TX79_MMI_PSLLW      = 0x3C | TX79_CLASS_MMI,
-    TX79_MMI_PSRLW      = 0x3E | TX79_CLASS_MMI,
-    TX79_MMI_PSRAW      = 0x3F | TX79_CLASS_MMI,
+    MMI_OPC_MADD       = 0x00 | MMI_OPC_CLASS_MMI, /* Same as OPC_MADD */
+    MMI_OPC_MADDU      = 0x01 | MMI_OPC_CLASS_MMI, /* Same as OPC_MADDU */
+    MMI_OPC_PLZCW      = 0x04 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_CLASS_MMI0 = 0x08 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_CLASS_MMI2 = 0x09 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_MFHI1      = 0x10 | MMI_OPC_CLASS_MMI, /* Same minor as OPC_MFHI */
+    MMI_OPC_MTHI1      = 0x11 | MMI_OPC_CLASS_MMI, /* Same minor as OPC_MTHI */
+    MMI_OPC_MFLO1      = 0x12 | MMI_OPC_CLASS_MMI, /* Same minor as OPC_MFLO */
+    MMI_OPC_MTLO1      = 0x13 | MMI_OPC_CLASS_MMI, /* Same minor as OPC_MTLO */
+    MMI_OPC_MULT1      = 0x18 | MMI_OPC_CLASS_MMI, /* Same minor as OPC_MULT */
+    MMI_OPC_MULTU1     = 0x19 | MMI_OPC_CLASS_MMI, /* Same min. as OPC_MULTU */
+    MMI_OPC_DIV1       = 0x1A | MMI_OPC_CLASS_MMI, /* Same minor as OPC_DIV  */
+    MMI_OPC_DIVU1      = 0x1B | MMI_OPC_CLASS_MMI, /* Same minor as OPC_DIVU */
+    MMI_OPC_MADD1      = 0x20 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_MADDU1     = 0x21 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_CLASS_MMI1 = 0x28 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_CLASS_MMI3 = 0x29 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_PMFHL      = 0x30 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_PMTHL      = 0x31 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_PSLLH      = 0x34 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_PSRLH      = 0x36 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_PSRAH      = 0x37 | MMI_OPC_CLASS_MMI,
+    MMI_OPC_PSLLW      = 0x3C | MMI_OPC_CLASS_MMI,
+    MMI_OPC_PSRLW      = 0x3E | MMI_OPC_CLASS_MMI,
+    MMI_OPC_PSRAW      = 0x3F | MMI_OPC_CLASS_MMI,
 };
 
 /*
- * TX79 Multimedia Instructions with opcode field = MMI and bits 5..0 = MMI0:
+ * MMI instructions with opcode field = MMI and bits 5..0 = MMI0:
  *
  *  31    26                        10     6 5      0
  * +--------+----------------------+--------+--------+
@@ -2210,37 +2286,37 @@ enum {
  *    7 111 |   *   |   *   | PEXT5 | PPAC5
  */
 
-#define MASK_TX79_MMI0(op) (MASK_OP_MAJOR(op) | ((op) & 0x7FF))
+#define MASK_MMI0(op) (MASK_OP_MAJOR(op) | ((op) & 0x7FF))
 enum {
-    TX79_MMI0_PADDW  = (0x00 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PSUBW  = (0x01 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PCGTW  = (0x02 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PMAXW  = (0x03 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PADDH  = (0x04 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PSUBH  = (0x05 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PCGTH  = (0x06 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PMAXH  = (0x07 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PADDB  = (0x08 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PSUBB  = (0x09 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PCGTB  = (0x0A << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PADDSW = (0x10 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PSUBSW = (0x11 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PEXTLW = (0x12 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PPACW  = (0x13 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PADDSH = (0x14 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PSUBSH = (0x15 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PEXTLH = (0x16 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PPACH  = (0x17 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PADDSB = (0x18 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PSUBSB = (0x19 << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PEXTLB = (0x1A << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PPACB  = (0x1B << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PEXT5  = (0x1E << 6) | TX79_MMI_CLASS_MMI0,
-    TX79_MMI0_PPAC5  = (0x1F << 6) | TX79_MMI_CLASS_MMI0,
+    MMI_OPC_0_PADDW  = (0x00 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PSUBW  = (0x01 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PCGTW  = (0x02 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PMAXW  = (0x03 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PADDH  = (0x04 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PSUBH  = (0x05 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PCGTH  = (0x06 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PMAXH  = (0x07 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PADDB  = (0x08 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PSUBB  = (0x09 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PCGTB  = (0x0A << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PADDSW = (0x10 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PSUBSW = (0x11 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PEXTLW = (0x12 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PPACW  = (0x13 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PADDSH = (0x14 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PSUBSH = (0x15 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PEXTLH = (0x16 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PPACH  = (0x17 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PADDSB = (0x18 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PSUBSB = (0x19 << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PEXTLB = (0x1A << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PPACB  = (0x1B << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PEXT5  = (0x1E << 6) | MMI_OPC_CLASS_MMI0,
+    MMI_OPC_0_PPAC5  = (0x1F << 6) | MMI_OPC_CLASS_MMI0,
 };
 
 /*
- * TX79 Multimedia Instructions with opcode field = MMI and bits 5..0 = MMI1:
+ * MMI instructions with opcode field = MMI and bits 5..0 = MMI1:
  *
  *  31    26                        10     6 5      0
  * +--------+----------------------+--------+--------+
@@ -2261,30 +2337,30 @@ enum {
  *    7 111 |   *   |   *   |   *   |   *
  */
 
-#define MASK_TX79_MMI1(op) (MASK_OP_MAJOR(op) | ((op) & 0x7FF))
+#define MASK_MMI1(op) (MASK_OP_MAJOR(op) | ((op) & 0x7FF))
 enum {
-    TX79_MMI1_PABSW  = (0x01 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PCEQW  = (0x02 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PMINW  = (0x03 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PADSBH = (0x04 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PABSH  = (0x05 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PCEQH  = (0x06 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PMINH  = (0x07 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PCEQB  = (0x0A << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PADDUW = (0x10 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PSUBUW = (0x11 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PEXTUW = (0x12 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PADDUH = (0x14 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PSUBUH = (0x15 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PEXTUH = (0x16 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PADDUB = (0x18 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PSUBUB = (0x19 << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_PEXTUB = (0x1A << 6) | TX79_MMI_CLASS_MMI1,
-    TX79_MMI1_QFSRV  = (0x1B << 6) | TX79_MMI_CLASS_MMI1,
+    MMI_OPC_1_PABSW  = (0x01 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PCEQW  = (0x02 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PMINW  = (0x03 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PADSBH = (0x04 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PABSH  = (0x05 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PCEQH  = (0x06 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PMINH  = (0x07 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PCEQB  = (0x0A << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PADDUW = (0x10 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PSUBUW = (0x11 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PEXTUW = (0x12 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PADDUH = (0x14 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PSUBUH = (0x15 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PEXTUH = (0x16 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PADDUB = (0x18 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PSUBUB = (0x19 << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_PEXTUB = (0x1A << 6) | MMI_OPC_CLASS_MMI1,
+    MMI_OPC_1_QFSRV  = (0x1B << 6) | MMI_OPC_CLASS_MMI1,
 };
 
 /*
- * TX79 Multimedia Instructions with opcode field = MMI and bits 5..0 = MMI2:
+ * MMI instructions with opcode field = MMI and bits 5..0 = MMI2:
  *
  *  31    26                        10     6 5      0
  * +--------+----------------------+--------+--------+
@@ -2305,34 +2381,34 @@ enum {
  *    7 111 | PMULTH| PDIVBW| PEXEW | PROT3W
  */
 
-#define MASK_TX79_MMI2(op) (MASK_OP_MAJOR(op) | ((op) & 0x7FF))
+#define MASK_MMI2(op) (MASK_OP_MAJOR(op) | ((op) & 0x7FF))
 enum {
-    TX79_MMI2_PMADDW = (0x00 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PSLLVW = (0x02 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PSRLVW = (0x03 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PMSUBW = (0x04 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PMFHI  = (0x08 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PMFLO  = (0x09 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PINTH  = (0x0A << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PMULTW = (0x0C << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PDIVW  = (0x0D << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PCPYLD = (0x0E << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PMADDH = (0x10 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PHMADH = (0x11 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PAND   = (0x12 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PXOR   = (0x13 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PMSUBH = (0x14 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PHMSBH = (0x15 << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PEXEH  = (0x1A << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PREVH  = (0x1B << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PMULTH = (0x1C << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PDIVBW = (0x1D << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PEXEW  = (0x1E << 6) | TX79_MMI_CLASS_MMI2,
-    TX79_MMI2_PROT3W = (0x1F << 6) | TX79_MMI_CLASS_MMI2,
+    MMI_OPC_2_PMADDW = (0x00 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PSLLVW = (0x02 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PSRLVW = (0x03 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PMSUBW = (0x04 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PMFHI  = (0x08 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PMFLO  = (0x09 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PINTH  = (0x0A << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PMULTW = (0x0C << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PDIVW  = (0x0D << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PCPYLD = (0x0E << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PMADDH = (0x10 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PHMADH = (0x11 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PAND   = (0x12 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PXOR   = (0x13 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PMSUBH = (0x14 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PHMSBH = (0x15 << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PEXEH  = (0x1A << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PREVH  = (0x1B << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PMULTH = (0x1C << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PDIVBW = (0x1D << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PEXEW  = (0x1E << 6) | MMI_OPC_CLASS_MMI2,
+    MMI_OPC_2_PROT3W = (0x1F << 6) | MMI_OPC_CLASS_MMI2,
 };
 
 /*
- * TX79 Multimedia Instructions with opcode field = MMI and bits 5..0 = MMI3:
+ * MMI instructions with opcode field = MMI and bits 5..0 = MMI3:
  *
  *  31    26                        10     6 5      0
  * +--------+----------------------+--------+--------+
@@ -2353,21 +2429,21 @@ enum {
  *    7 111 |   *   |   *   | PEXCW |   *
  */
 
-#define MASK_TX79_MMI3(op) (MASK_OP_MAJOR(op) | ((op) & 0x7FF))
+#define MASK_MMI3(op) (MASK_OP_MAJOR(op) | ((op) & 0x7FF))
 enum {
-    TX79_MMI3_PMADDUW = (0x00 << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PSRAVW  = (0x03 << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PMTHI   = (0x08 << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PMTLO   = (0x09 << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PINTEH  = (0x0A << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PMULTUW = (0x0C << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PDIVUW  = (0x0D << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PCPYUD  = (0x0E << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_POR     = (0x12 << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PNOR    = (0x13 << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PEXCH   = (0x1A << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PCPYH   = (0x1B << 6) | TX79_MMI_CLASS_MMI3,
-    TX79_MMI3_PEXCW   = (0x1E << 6) | TX79_MMI_CLASS_MMI3,
+    MMI_OPC_3_PMADDUW = (0x00 << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PSRAVW  = (0x03 << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PMTHI   = (0x08 << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PMTLO   = (0x09 << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PINTEH  = (0x0A << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PMULTUW = (0x0C << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PDIVUW  = (0x0D << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PCPYUD  = (0x0E << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_POR     = (0x12 << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PNOR    = (0x13 << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PEXCH   = (0x1A << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PCPYH   = (0x1B << 6) | MMI_OPC_CLASS_MMI3,
+    MMI_OPC_3_PEXCW   = (0x1E << 6) | MMI_OPC_CLASS_MMI3,
 };
 
 /* global register indices */
@@ -2378,6 +2454,17 @@ static TCGv_i32 hflags;
 static TCGv_i32 fpu_fcr0, fpu_fcr31;
 static TCGv_i64 fpu_f64[32];
 static TCGv_i64 msa_wr_d[64];
+
+#if defined(TARGET_MIPS64)
+/* Upper halves of R5900's 128-bit registers: MMRs (multimedia registers) */
+static TCGv_i64 cpu_mmr[32];
+#endif
+
+#if !defined(TARGET_MIPS64)
+/* MXU registers */
+static TCGv mxu_gpr[NUMBER_OF_MXU_REGISTERS - 1];
+static TCGv mxu_CR;
+#endif
 
 #include "exec/gen-icount.h"
 
@@ -2455,6 +2542,7 @@ typedef struct DisasContext {
     bool mrp;
     bool nan2008;
     bool abs2008;
+    bool saar;
 } DisasContext;
 
 #define DISAS_STOP       DISAS_TARGET_0
@@ -2500,6 +2588,13 @@ static const char * const msaregnames[] = {
     "w28.d0", "w28.d1", "w29.d0", "w29.d1",
     "w30.d0", "w30.d1", "w31.d0", "w31.d1",
 };
+
+#if !defined(TARGET_MIPS64)
+static const char * const mxuregnames[] = {
+    "XR1",  "XR2",  "XR3",  "XR4",  "XR5",  "XR6",  "XR7",  "XR8",
+    "XR9",  "XR10", "XR11", "XR12", "XR13", "XR14", "XR15", "MXU_CR",
+};
+#endif
 
 #define LOG_DISAS(...)                                                        \
     do {                                                                      \
@@ -2581,6 +2676,38 @@ static inline void gen_store_srsgpr (int from, int to)
         tcg_temp_free(t0);
     }
 }
+
+#if !defined(TARGET_MIPS64)
+/* MXU General purpose registers moves. */
+static inline void gen_load_mxu_gpr(TCGv t, unsigned int reg)
+{
+    if (reg == 0) {
+        tcg_gen_movi_tl(t, 0);
+    } else if (reg <= 15) {
+        tcg_gen_mov_tl(t, mxu_gpr[reg - 1]);
+    }
+}
+
+static inline void gen_store_mxu_gpr(TCGv t, unsigned int reg)
+{
+    if (reg > 0 && reg <= 15) {
+        tcg_gen_mov_tl(mxu_gpr[reg - 1], t);
+    }
+}
+
+/* MXU control register moves. */
+static inline void gen_load_mxu_cr(TCGv t)
+{
+    tcg_gen_mov_tl(t, mxu_CR);
+}
+
+static inline void gen_store_mxu_cr(TCGv t)
+{
+    /* TODO: Add handling of RW rules for MXU_CR. */
+    tcg_gen_mov_tl(mxu_CR, t);
+}
+#endif
+
 
 /* Tests */
 static inline void gen_save_pc(target_ulong pc)
@@ -3587,7 +3714,7 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
 }
 
 static void gen_scwp(DisasContext *ctx, uint32_t base, int16_t offset,
-                    uint32_t reg1, uint32_t reg2)
+                    uint32_t reg1, uint32_t reg2, bool eva)
 {
     TCGv taddr = tcg_temp_local_new();
     TCGv lladdr = tcg_temp_local_new();
@@ -3615,7 +3742,7 @@ static void gen_scwp(DisasContext *ctx, uint32_t base, int16_t offset,
 
     tcg_gen_ld_i64(llval, cpu_env, offsetof(CPUMIPSState, llval_wp));
     tcg_gen_atomic_cmpxchg_i64(val, taddr, llval, tval,
-                               ctx->mem_idx, MO_64);
+                               eva ? MIPS_HFLAG_UM : ctx->mem_idx, MO_64);
     if (reg1 != 0) {
         tcg_gen_movi_tl(cpu_gpr[reg1], 1);
     }
@@ -4278,24 +4405,56 @@ static void gen_shift(DisasContext *ctx, uint32_t opc,
     tcg_temp_free(t1);
 }
 
+/* Copy GPR to and from TX79 HI1/LO1 register. */
+static void gen_HILO1_tx79(DisasContext *ctx, uint32_t opc, int reg)
+{
+    if (reg == 0 && (opc == MMI_OPC_MFHI1 || opc == MMI_OPC_MFLO1)) {
+        /* Treat as NOP. */
+        return;
+    }
+
+    switch (opc) {
+    case MMI_OPC_MFHI1:
+        tcg_gen_mov_tl(cpu_gpr[reg], cpu_HI[1]);
+        break;
+    case MMI_OPC_MFLO1:
+        tcg_gen_mov_tl(cpu_gpr[reg], cpu_LO[1]);
+        break;
+    case MMI_OPC_MTHI1:
+        if (reg != 0) {
+            tcg_gen_mov_tl(cpu_HI[1], cpu_gpr[reg]);
+        } else {
+            tcg_gen_movi_tl(cpu_HI[1], 0);
+        }
+        break;
+    case MMI_OPC_MTLO1:
+        if (reg != 0) {
+            tcg_gen_mov_tl(cpu_LO[1], cpu_gpr[reg]);
+        } else {
+            tcg_gen_movi_tl(cpu_LO[1], 0);
+        }
+        break;
+    default:
+        MIPS_INVAL("mfthilo1 TX79");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
 /* Arithmetic on HI/LO registers */
 static void gen_HILO(DisasContext *ctx, uint32_t opc, int acc, int reg)
 {
-    if (reg == 0 && (opc == OPC_MFHI || opc == TX79_MMI_MFHI1 ||
-                     opc == OPC_MFLO || opc == TX79_MMI_MFLO1)) {
+    if (reg == 0 && (opc == OPC_MFHI || opc == OPC_MFLO)) {
         /* Treat as NOP. */
         return;
     }
 
     if (acc != 0) {
-        if (!(ctx->insn_flags & INSN_R5900)) {
-            check_dsp(ctx);
-        }
+        check_dsp(ctx);
     }
 
     switch (opc) {
     case OPC_MFHI:
-    case TX79_MMI_MFHI1:
 #if defined(TARGET_MIPS64)
         if (acc != 0) {
             tcg_gen_ext32s_tl(cpu_gpr[reg], cpu_HI[acc]);
@@ -4306,7 +4465,6 @@ static void gen_HILO(DisasContext *ctx, uint32_t opc, int acc, int reg)
         }
         break;
     case OPC_MFLO:
-    case TX79_MMI_MFLO1:
 #if defined(TARGET_MIPS64)
         if (acc != 0) {
             tcg_gen_ext32s_tl(cpu_gpr[reg], cpu_LO[acc]);
@@ -4317,7 +4475,6 @@ static void gen_HILO(DisasContext *ctx, uint32_t opc, int acc, int reg)
         }
         break;
     case OPC_MTHI:
-    case TX79_MMI_MTHI1:
         if (reg != 0) {
 #if defined(TARGET_MIPS64)
             if (acc != 0) {
@@ -4332,7 +4489,6 @@ static void gen_HILO(DisasContext *ctx, uint32_t opc, int acc, int reg)
         }
         break;
     case OPC_MTLO:
-    case TX79_MMI_MTLO1:
         if (reg != 0) {
 #if defined(TARGET_MIPS64)
             if (acc != 0) {
@@ -4633,6 +4789,63 @@ static void gen_r6_muldiv(DisasContext *ctx, int opc, int rd, int rs, int rt)
     tcg_temp_free(t1);
 }
 
+static void gen_div1_tx79(DisasContext *ctx, uint32_t opc, int rs, int rt)
+{
+    TCGv t0, t1;
+
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+
+    gen_load_gpr(t0, rs);
+    gen_load_gpr(t1, rt);
+
+    switch (opc) {
+    case MMI_OPC_DIV1:
+        {
+            TCGv t2 = tcg_temp_new();
+            TCGv t3 = tcg_temp_new();
+            tcg_gen_ext32s_tl(t0, t0);
+            tcg_gen_ext32s_tl(t1, t1);
+            tcg_gen_setcondi_tl(TCG_COND_EQ, t2, t0, INT_MIN);
+            tcg_gen_setcondi_tl(TCG_COND_EQ, t3, t1, -1);
+            tcg_gen_and_tl(t2, t2, t3);
+            tcg_gen_setcondi_tl(TCG_COND_EQ, t3, t1, 0);
+            tcg_gen_or_tl(t2, t2, t3);
+            tcg_gen_movi_tl(t3, 0);
+            tcg_gen_movcond_tl(TCG_COND_NE, t1, t2, t3, t2, t1);
+            tcg_gen_div_tl(cpu_LO[1], t0, t1);
+            tcg_gen_rem_tl(cpu_HI[1], t0, t1);
+            tcg_gen_ext32s_tl(cpu_LO[1], cpu_LO[1]);
+            tcg_gen_ext32s_tl(cpu_HI[1], cpu_HI[1]);
+            tcg_temp_free(t3);
+            tcg_temp_free(t2);
+        }
+        break;
+    case MMI_OPC_DIVU1:
+        {
+            TCGv t2 = tcg_const_tl(0);
+            TCGv t3 = tcg_const_tl(1);
+            tcg_gen_ext32u_tl(t0, t0);
+            tcg_gen_ext32u_tl(t1, t1);
+            tcg_gen_movcond_tl(TCG_COND_EQ, t1, t1, t2, t3, t1);
+            tcg_gen_divu_tl(cpu_LO[1], t0, t1);
+            tcg_gen_remu_tl(cpu_HI[1], t0, t1);
+            tcg_gen_ext32s_tl(cpu_LO[1], cpu_LO[1]);
+            tcg_gen_ext32s_tl(cpu_HI[1], cpu_HI[1]);
+            tcg_temp_free(t3);
+            tcg_temp_free(t2);
+        }
+        break;
+    default:
+        MIPS_INVAL("div1 TX79");
+        generate_exception_end(ctx, EXCP_RI);
+        goto out;
+    }
+ out:
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+}
+
 static void gen_muldiv(DisasContext *ctx, uint32_t opc,
                        int acc, int rs, int rt)
 {
@@ -4645,14 +4858,11 @@ static void gen_muldiv(DisasContext *ctx, uint32_t opc,
     gen_load_gpr(t1, rt);
 
     if (acc != 0) {
-        if (!(ctx->insn_flags & INSN_R5900)) {
-            check_dsp(ctx);
-        }
+        check_dsp(ctx);
     }
 
     switch (opc) {
     case OPC_DIV:
-    case TX79_MMI_DIV1:
         {
             TCGv t2 = tcg_temp_new();
             TCGv t3 = tcg_temp_new();
@@ -4674,7 +4884,6 @@ static void gen_muldiv(DisasContext *ctx, uint32_t opc,
         }
         break;
     case OPC_DIVU:
-    case TX79_MMI_DIVU1:
         {
             TCGv t2 = tcg_const_tl(0);
             TCGv t3 = tcg_const_tl(1);
@@ -4830,8 +5039,8 @@ static void gen_muldiv(DisasContext *ctx, uint32_t opc,
 }
 
 /*
- * These MULT and MULTU instructions implemented in for example the
- * Toshiba/Sony R5900 and the Toshiba TX19, TX39 and TX79 core
+ * These MULT[U] and MADD[U] instructions implemented in for example
+ * the Toshiba/Sony R5900 and the Toshiba TX19, TX39 and TX79 core
  * architectures are special three-operand variants with the syntax
  *
  *     MULT[U][1] rd, rs, rt
@@ -4839,6 +5048,14 @@ static void gen_muldiv(DisasContext *ctx, uint32_t opc,
  * such that
  *
  *     (rd, LO, HI) <- rs * rt
+ *
+ * and
+ *
+ *     MADD[U][1] rd, rs, rt
+ *
+ * such that
+ *
+ *     (rd, LO, HI) <- (LO, HI) + rs * rt
  *
  * where the low-order 32-bits of the result is placed into both the
  * GPR rd and the special register LO. The high-order 32-bits of the
@@ -4858,7 +5075,7 @@ static void gen_mul_txx9(DisasContext *ctx, uint32_t opc,
     gen_load_gpr(t1, rt);
 
     switch (opc) {
-    case TX79_MMI_MULT1:
+    case MMI_OPC_MULT1:
         acc = 1;
         /* Fall through */
     case OPC_MULT:
@@ -4877,7 +5094,7 @@ static void gen_mul_txx9(DisasContext *ctx, uint32_t opc,
             tcg_temp_free_i32(t3);
         }
         break;
-    case TX79_MMI_MULTU1:
+    case MMI_OPC_MULTU1:
         acc = 1;
         /* Fall through */
     case OPC_MULTU:
@@ -4896,8 +5113,54 @@ static void gen_mul_txx9(DisasContext *ctx, uint32_t opc,
             tcg_temp_free_i32(t3);
         }
         break;
+    case MMI_OPC_MADD1:
+        acc = 1;
+        /* Fall through */
+    case MMI_OPC_MADD:
+        {
+            TCGv_i64 t2 = tcg_temp_new_i64();
+            TCGv_i64 t3 = tcg_temp_new_i64();
+
+            tcg_gen_ext_tl_i64(t2, t0);
+            tcg_gen_ext_tl_i64(t3, t1);
+            tcg_gen_mul_i64(t2, t2, t3);
+            tcg_gen_concat_tl_i64(t3, cpu_LO[acc], cpu_HI[acc]);
+            tcg_gen_add_i64(t2, t2, t3);
+            tcg_temp_free_i64(t3);
+            gen_move_low32(cpu_LO[acc], t2);
+            gen_move_high32(cpu_HI[acc], t2);
+            if (rd) {
+                gen_move_low32(cpu_gpr[rd], t2);
+            }
+            tcg_temp_free_i64(t2);
+        }
+        break;
+    case MMI_OPC_MADDU1:
+        acc = 1;
+        /* Fall through */
+    case MMI_OPC_MADDU:
+        {
+            TCGv_i64 t2 = tcg_temp_new_i64();
+            TCGv_i64 t3 = tcg_temp_new_i64();
+
+            tcg_gen_ext32u_tl(t0, t0);
+            tcg_gen_ext32u_tl(t1, t1);
+            tcg_gen_extu_tl_i64(t2, t0);
+            tcg_gen_extu_tl_i64(t3, t1);
+            tcg_gen_mul_i64(t2, t2, t3);
+            tcg_gen_concat_tl_i64(t3, cpu_LO[acc], cpu_HI[acc]);
+            tcg_gen_add_i64(t2, t2, t3);
+            tcg_temp_free_i64(t3);
+            gen_move_low32(cpu_LO[acc], t2);
+            gen_move_high32(cpu_HI[acc], t2);
+            if (rd) {
+                gen_move_low32(cpu_gpr[rd], t2);
+            }
+            tcg_temp_free_i64(t2);
+        }
+        break;
     default:
-        MIPS_INVAL("mul TXx9");
+        MIPS_INVAL("mul/madd TXx9");
         generate_exception_end(ctx, EXCP_RI);
         goto out;
     }
@@ -6310,55 +6573,66 @@ static inline void gen_mtc0_store32 (TCGv arg, target_ulong off)
 
 static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
 {
-    const char *rn = "invalid";
+    const char *register_name = "invalid";
 
     switch (reg) {
-    case 2:
+    case CP0_REGISTER_02:
         switch (sel) {
         case 0:
             CP0_CHECK(ctx->hflags & MIPS_HFLAG_ELPA);
             gen_mfhc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo0));
-            rn = "EntryLo0";
+            register_name = "EntryLo0";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 3:
+    case CP0_REGISTER_03:
         switch (sel) {
         case 0:
             CP0_CHECK(ctx->hflags & MIPS_HFLAG_ELPA);
             gen_mfhc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
-            rn = "EntryLo1";
+            register_name = "EntryLo1";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 17:
+    case CP0_REGISTER_09:
+        switch (sel) {
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mfhc0_saar(arg, cpu_env);
+            register_name = "SAAR";
+            break;
+        default:
+            goto cp0_unimplemented;
+        }
+        break;
+    case CP0_REGISTER_17:
         switch (sel) {
         case 0:
             gen_mfhc0_load64(arg, offsetof(CPUMIPSState, lladdr),
                              ctx->CP0_LLAddr_shift);
-            rn = "LLAddr";
+            register_name = "LLAddr";
             break;
         case 1:
             CP0_CHECK(ctx->mrp);
             gen_helper_mfhc0_maar(arg, cpu_env);
-            rn = "MAAR";
+            register_name = "MAAR";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 28:
+    case CP0_REGISTER_28:
         switch (sel) {
         case 0:
         case 2:
         case 4:
         case 6:
             gen_mfhc0_load64(arg, offsetof(CPUMIPSState, CP0_TagLo), 0);
-            rn = "TagLo";
+            register_name = "TagLo";
             break;
         default:
             goto cp0_unimplemented;
@@ -6367,63 +6641,74 @@ static void gen_mfhc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     default:
         goto cp0_unimplemented;
     }
-    trace_mips_translate_c0("mfhc0", rn, reg, sel);
+    trace_mips_translate_c0("mfhc0", register_name, reg, sel);
     return;
 
 cp0_unimplemented:
-    qemu_log_mask(LOG_UNIMP, "mfhc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    qemu_log_mask(LOG_UNIMP, "mfhc0 %s (reg %d sel %d)\n",
+                  register_name, reg, sel);
     tcg_gen_movi_tl(arg, 0);
 }
 
 static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
 {
-    const char *rn = "invalid";
+    const char *register_name = "invalid";
     uint64_t mask = ctx->PAMask >> 36;
 
     switch (reg) {
-    case 2:
+    case CP0_REGISTER_02:
         switch (sel) {
         case 0:
             CP0_CHECK(ctx->hflags & MIPS_HFLAG_ELPA);
             tcg_gen_andi_tl(arg, arg, mask);
             gen_mthc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo0));
-            rn = "EntryLo0";
+            register_name = "EntryLo0";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 3:
+    case CP0_REGISTER_03:
         switch (sel) {
         case 0:
             CP0_CHECK(ctx->hflags & MIPS_HFLAG_ELPA);
             tcg_gen_andi_tl(arg, arg, mask);
             gen_mthc0_entrylo(arg, offsetof(CPUMIPSState, CP0_EntryLo1));
-            rn = "EntryLo1";
+            register_name = "EntryLo1";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 17:
+    case CP0_REGISTER_09:
+        switch (sel) {
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mthc0_saar(cpu_env, arg);
+            register_name = "SAAR";
+            break;
+        default:
+            goto cp0_unimplemented;
+        }
+    case CP0_REGISTER_17:
         switch (sel) {
         case 0:
             /* LLAddr is read-only (the only exception is bit 0 if LLB is
                supported); the CP0_LLAddr_rw_bitmask does not seem to be
                relevant for modern MIPS cores supporting MTHC0, therefore
                treating MTHC0 to LLAddr as NOP. */
-            rn = "LLAddr";
+            register_name = "LLAddr";
             break;
         case 1:
             CP0_CHECK(ctx->mrp);
             gen_helper_mthc0_maar(cpu_env, arg);
-            rn = "MAAR";
+            register_name = "MAAR";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 28:
+    case CP0_REGISTER_28:
         switch (sel) {
         case 0:
         case 2:
@@ -6431,7 +6716,7 @@ static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 6:
             tcg_gen_andi_tl(arg, arg, mask);
             gen_mthc0_store64(arg, offsetof(CPUMIPSState, CP0_TagLo));
-            rn = "TagLo";
+            register_name = "TagLo";
             break;
         default:
             goto cp0_unimplemented;
@@ -6440,10 +6725,11 @@ static void gen_mthc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     default:
         goto cp0_unimplemented;
     }
-    trace_mips_translate_c0("mthc0", rn, reg, sel);
+    trace_mips_translate_c0("mthc0", register_name, reg, sel);
 
 cp0_unimplemented:
-    qemu_log_mask(LOG_UNIMP, "mthc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    qemu_log_mask(LOG_UNIMP, "mthc0 %s (reg %d sel %d)\n",
+                  register_name, reg, sel);
 }
 
 static inline void gen_mfc0_unimplemented(DisasContext *ctx, TCGv arg)
@@ -6457,89 +6743,89 @@ static inline void gen_mfc0_unimplemented(DisasContext *ctx, TCGv arg)
 
 static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
 {
-    const char *rn = "invalid";
+    const char *register_name = "invalid";
 
     if (sel != 0)
         check_insn(ctx, ISA_MIPS32);
 
     switch (reg) {
-    case 0:
+    case CP0_REGISTER_00:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Index));
-            rn = "Index";
+            register_name = "Index";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpcontrol(arg, cpu_env);
-            rn = "MVPControl";
+            register_name = "MVPControl";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpconf0(arg, cpu_env);
-            rn = "MVPConf0";
+            register_name = "MVPConf0";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpconf1(arg, cpu_env);
-            rn = "MVPConf1";
+            register_name = "MVPConf1";
             break;
         case 4:
             CP0_CHECK(ctx->vp);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPControl));
-            rn = "VPControl";
+            register_name = "VPControl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 1:
+    case CP0_REGISTER_01:
         switch (sel) {
         case 0:
             CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
             gen_helper_mfc0_random(arg, cpu_env);
-            rn = "Random";
+            register_name = "Random";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEControl));
-            rn = "VPEControl";
+            register_name = "VPEControl";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf0));
-            rn = "VPEConf0";
+            register_name = "VPEConf0";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf1));
-            rn = "VPEConf1";
+            register_name = "VPEConf1";
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_YQMask));
-            rn = "YQMask";
+            register_name = "YQMask";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_VPESchedule));
-            rn = "VPESchedule";
+            register_name = "VPESchedule";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load64(arg, offsetof(CPUMIPSState, CP0_VPEScheFBack));
-            rn = "VPEScheFBack";
+            register_name = "VPEScheFBack";
             break;
         case 7:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEOpt));
-            rn = "VPEOpt";
+            register_name = "VPEOpt";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 2:
+    case CP0_REGISTER_02:
         switch (sel) {
         case 0:
             {
@@ -6556,48 +6842,48 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
                 gen_move_low32(arg, tmp);
                 tcg_temp_free_i64(tmp);
             }
-            rn = "EntryLo0";
+            register_name = "EntryLo0";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcstatus(arg, cpu_env);
-            rn = "TCStatus";
+            register_name = "TCStatus";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcbind(arg, cpu_env);
-            rn = "TCBind";
+            register_name = "TCBind";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcrestart(arg, cpu_env);
-            rn = "TCRestart";
+            register_name = "TCRestart";
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tchalt(arg, cpu_env);
-            rn = "TCHalt";
+            register_name = "TCHalt";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tccontext(arg, cpu_env);
-            rn = "TCContext";
+            register_name = "TCContext";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcschedule(arg, cpu_env);
-            rn = "TCSchedule";
+            register_name = "TCSchedule";
             break;
         case 7:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcschefback(arg, cpu_env);
-            rn = "TCScheFBack";
+            register_name = "TCScheFBack";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 3:
+    case CP0_REGISTER_03:
         switch (sel) {
         case 0:
             {
@@ -6614,172 +6900,172 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
                 gen_move_low32(arg, tmp);
                 tcg_temp_free_i64(tmp);
             }
-            rn = "EntryLo1";
+            register_name = "EntryLo1";
             break;
         case 1:
             CP0_CHECK(ctx->vp);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_GlobalNumber));
-            rn = "GlobalNumber";
+            register_name = "GlobalNumber";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 4:
+    case CP0_REGISTER_04:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_Context));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "Context";
+            register_name = "Context";
             break;
         case 1:
 //            gen_helper_mfc0_contextconfig(arg); /* SmartMIPS ASE */
-            rn = "ContextConfig";
+            register_name = "ContextConfig";
             goto cp0_unimplemented;
         case 2:
             CP0_CHECK(ctx->ulri);
             tcg_gen_ld_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "UserLocal";
+            register_name = "UserLocal";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 5:
+    case CP0_REGISTER_05:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageMask));
-            rn = "PageMask";
+            register_name = "PageMask";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageGrain));
-            rn = "PageGrain";
+            register_name = "PageGrain";
             break;
         case 2:
             CP0_CHECK(ctx->sc);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SegCtl0));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "SegCtl0";
+            register_name = "SegCtl0";
             break;
         case 3:
             CP0_CHECK(ctx->sc);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SegCtl1));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "SegCtl1";
+            register_name = "SegCtl1";
             break;
         case 4:
             CP0_CHECK(ctx->sc);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SegCtl2));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "SegCtl2";
+            register_name = "SegCtl2";
             break;
         case 5:
             check_pw(ctx);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWBase));
-            rn = "PWBase";
+            register_name = "PWBase";
             break;
         case 6:
             check_pw(ctx);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWField));
-            rn = "PWField";
+            register_name = "PWField";
             break;
         case 7:
             check_pw(ctx);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWSize));
-            rn = "PWSize";
+            register_name = "PWSize";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 6:
+    case CP0_REGISTER_06:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Wired));
-            rn = "Wired";
+            register_name = "Wired";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf0));
-            rn = "SRSConf0";
+            register_name = "SRSConf0";
             break;
         case 2:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf1));
-            rn = "SRSConf1";
+            register_name = "SRSConf1";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf2));
-            rn = "SRSConf2";
+            register_name = "SRSConf2";
             break;
         case 4:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf3));
-            rn = "SRSConf3";
+            register_name = "SRSConf3";
             break;
         case 5:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf4));
-            rn = "SRSConf4";
+            register_name = "SRSConf4";
             break;
         case 6:
             check_pw(ctx);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
-            rn = "PWCtl";
+            register_name = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 7:
+    case CP0_REGISTER_07:
         switch (sel) {
         case 0:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_HWREna));
-            rn = "HWREna";
+            register_name = "HWREna";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 8:
+    case CP0_REGISTER_08:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_BadVAddr));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "BadVAddr";
+            register_name = "BadVAddr";
             break;
         case 1:
             CP0_CHECK(ctx->bi);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstr));
-            rn = "BadInstr";
+            register_name = "BadInstr";
             break;
         case 2:
             CP0_CHECK(ctx->bp);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstrP));
-            rn = "BadInstrP";
+            register_name = "BadInstrP";
             break;
         case 3:
             CP0_CHECK(ctx->bi);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstrX));
             tcg_gen_andi_tl(arg, arg, ~0xffff);
-            rn = "BadInstrX";
+            register_name = "BadInstrX";
             break;
        default:
             goto cp0_unimplemented;
         }
         break;
-    case 9:
+    case CP0_REGISTER_09:
         switch (sel) {
         case 0:
             /* Mark as an IO operation because we read the time.  */
             if (tb_cflags(ctx->base.tb) & CF_USE_ICOUNT) {
                 gen_io_start();
-	    }
+            }
             gen_helper_mfc0_count(arg, cpu_env);
             if (tb_cflags(ctx->base.tb) & CF_USE_ICOUNT) {
                 gen_io_end();
@@ -6789,164 +7075,173 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
                ensure we break completely out of translated code.  */
             gen_save_pc(ctx->base.pc_next + 4);
             ctx->base.is_jmp = DISAS_EXIT;
-            rn = "Count";
+            register_name = "Count";
             break;
-        /* 6,7 are implementation dependent */
+        case 6:
+            CP0_CHECK(ctx->saar);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SAARI));
+            register_name = "SAARI";
+            break;
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mfc0_saar(arg, cpu_env);
+            register_name = "SAAR";
+            break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 10:
+    case CP0_REGISTER_10:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryHi));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "EntryHi";
+            register_name = "EntryHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 11:
+    case CP0_REGISTER_11:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Compare));
-            rn = "Compare";
+            register_name = "Compare";
             break;
         /* 6,7 are implementation dependent */
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 12:
+    case CP0_REGISTER_12:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Status));
-            rn = "Status";
+            register_name = "Status";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_IntCtl));
-            rn = "IntCtl";
+            register_name = "IntCtl";
             break;
         case 2:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSCtl));
-            rn = "SRSCtl";
+            register_name = "SRSCtl";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSMap));
-            rn = "SRSMap";
+            register_name = "SRSMap";
             break;
         default:
             goto cp0_unimplemented;
        }
         break;
-    case 13:
+    case CP0_REGISTER_13:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Cause));
-            rn = "Cause";
+            register_name = "Cause";
             break;
         default:
             goto cp0_unimplemented;
        }
         break;
-    case 14:
+    case CP0_REGISTER_14:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EPC));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "EPC";
+            register_name = "EPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 15:
+    case CP0_REGISTER_15:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PRid));
-            rn = "PRid";
+            register_name = "PRid";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EBase));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "EBase";
+            register_name = "EBase";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             CP0_CHECK(ctx->cmgcr);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_CMGCRBase));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "CMGCRBase";
+            register_name = "CMGCRBase";
             break;
         default:
             goto cp0_unimplemented;
        }
         break;
-    case 16:
+    case CP0_REGISTER_16:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config0));
-            rn = "Config";
+            register_name = "Config";
             break;
         case 1:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config1));
-            rn = "Config1";
+            register_name = "Config1";
             break;
         case 2:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config2));
-            rn = "Config2";
+            register_name = "Config2";
             break;
         case 3:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config3));
-            rn = "Config3";
+            register_name = "Config3";
             break;
         case 4:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config4));
-            rn = "Config4";
+            register_name = "Config4";
             break;
         case 5:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config5));
-            rn = "Config5";
+            register_name = "Config5";
             break;
         /* 6,7 are implementation dependent */
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config6));
-            rn = "Config6";
+            register_name = "Config6";
             break;
         case 7:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config7));
-            rn = "Config7";
+            register_name = "Config7";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 17:
+    case CP0_REGISTER_17:
         switch (sel) {
         case 0:
             gen_helper_mfc0_lladdr(arg, cpu_env);
-            rn = "LLAddr";
+            register_name = "LLAddr";
             break;
         case 1:
             CP0_CHECK(ctx->mrp);
             gen_helper_mfc0_maar(arg, cpu_env);
-            rn = "MAAR";
+            register_name = "MAAR";
             break;
         case 2:
             CP0_CHECK(ctx->mrp);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_MAARI));
-            rn = "MAARI";
+            register_name = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 18:
+    case CP0_REGISTER_18:
         switch (sel) {
         case 0:
         case 1:
@@ -6958,13 +7253,13 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 7:
             CP0_CHECK(ctx->CP0_Config1 & (1 << CP0C1_WR));
             gen_helper_1e0i(mfc0_watchlo, arg, sel);
-            rn = "WatchLo";
+            register_name = "WatchLo";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 19:
+    case CP0_REGISTER_19:
         switch (sel) {
         case 0:
         case 1:
@@ -6976,142 +7271,142 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 7:
             CP0_CHECK(ctx->CP0_Config1 & (1 << CP0C1_WR));
             gen_helper_1e0i(mfc0_watchhi, arg, sel);
-            rn = "WatchHi";
+            register_name = "WatchHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 20:
+    case CP0_REGISTER_20:
         switch (sel) {
         case 0:
 #if defined(TARGET_MIPS64)
             check_insn(ctx, ISA_MIPS3);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_XContext));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "XContext";
+            register_name = "XContext";
             break;
 #endif
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 21:
+    case CP0_REGISTER_21:
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
         CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Framemask));
-            rn = "Framemask";
+            register_name = "Framemask";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 22:
+    case CP0_REGISTER_22:
         tcg_gen_movi_tl(arg, 0); /* unimplemented */
-        rn = "'Diagnostic"; /* implementation dependent */
+        register_name = "'Diagnostic"; /* implementation dependent */
         break;
-    case 23:
+    case CP0_REGISTER_23:
         switch (sel) {
         case 0:
             gen_helper_mfc0_debug(arg, cpu_env); /* EJTAG support */
-            rn = "Debug";
+            register_name = "Debug";
             break;
         case 1:
 //            gen_helper_mfc0_tracecontrol(arg); /* PDtrace support */
-            rn = "TraceControl";
+            register_name = "TraceControl";
             goto cp0_unimplemented;
         case 2:
 //            gen_helper_mfc0_tracecontrol2(arg); /* PDtrace support */
-            rn = "TraceControl2";
+            register_name = "TraceControl2";
             goto cp0_unimplemented;
         case 3:
 //            gen_helper_mfc0_usertracedata(arg); /* PDtrace support */
-            rn = "UserTraceData";
+            register_name = "UserTraceData";
             goto cp0_unimplemented;
         case 4:
 //            gen_helper_mfc0_tracebpc(arg); /* PDtrace support */
-            rn = "TraceBPC";
+            register_name = "TraceBPC";
             goto cp0_unimplemented;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 24:
+    case CP0_REGISTER_24:
         switch (sel) {
         case 0:
             /* EJTAG support */
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DEPC));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "DEPC";
+            register_name = "DEPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 25:
+    case CP0_REGISTER_25:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Performance0));
-            rn = "Performance0";
+            register_name = "Performance0";
             break;
         case 1:
 //            gen_helper_mfc0_performance1(arg);
-            rn = "Performance1";
+            register_name = "Performance1";
             goto cp0_unimplemented;
         case 2:
 //            gen_helper_mfc0_performance2(arg);
-            rn = "Performance2";
+            register_name = "Performance2";
             goto cp0_unimplemented;
         case 3:
 //            gen_helper_mfc0_performance3(arg);
-            rn = "Performance3";
+            register_name = "Performance3";
             goto cp0_unimplemented;
         case 4:
 //            gen_helper_mfc0_performance4(arg);
-            rn = "Performance4";
+            register_name = "Performance4";
             goto cp0_unimplemented;
         case 5:
 //            gen_helper_mfc0_performance5(arg);
-            rn = "Performance5";
+            register_name = "Performance5";
             goto cp0_unimplemented;
         case 6:
 //            gen_helper_mfc0_performance6(arg);
-            rn = "Performance6";
+            register_name = "Performance6";
             goto cp0_unimplemented;
         case 7:
 //            gen_helper_mfc0_performance7(arg);
-            rn = "Performance7";
+            register_name = "Performance7";
             goto cp0_unimplemented;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 26:
+    case CP0_REGISTER_26:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_ErrCtl));
-            rn = "ErrCtl";
+            register_name = "ErrCtl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 27:
+    case CP0_REGISTER_27:
         switch (sel) {
         case 0:
         case 1:
         case 2:
         case 3:
             tcg_gen_movi_tl(arg, 0); /* unimplemented */
-            rn = "CacheErr";
+            register_name = "CacheErr";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 28:
+    case CP0_REGISTER_28:
         switch (sel) {
         case 0:
         case 2:
@@ -7123,56 +7418,56 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
                 gen_move_low32(arg, tmp);
                 tcg_temp_free_i64(tmp);
             }
-            rn = "TagLo";
+            register_name = "TagLo";
             break;
         case 1:
         case 3:
         case 5:
         case 7:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DataLo));
-            rn = "DataLo";
+            register_name = "DataLo";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 29:
+    case CP0_REGISTER_29:
         switch (sel) {
         case 0:
         case 2:
         case 4:
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_TagHi));
-            rn = "TagHi";
+            register_name = "TagHi";
             break;
         case 1:
         case 3:
         case 5:
         case 7:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DataHi));
-            rn = "DataHi";
+            register_name = "DataHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 30:
+    case CP0_REGISTER_30:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_ErrorEPC));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "ErrorEPC";
+            register_name = "ErrorEPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 31:
+    case CP0_REGISTER_31:
         switch (sel) {
         case 0:
             /* EJTAG support */
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
-            rn = "DESAVE";
+            register_name = "DESAVE";
             break;
         case 2:
         case 3:
@@ -7184,7 +7479,7 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             tcg_gen_ld_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
             tcg_gen_ext32s_tl(arg, arg);
-            rn = "KScratch";
+            register_name = "KScratch";
             break;
         default:
             goto cp0_unimplemented;
@@ -7193,17 +7488,18 @@ static void gen_mfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     default:
        goto cp0_unimplemented;
     }
-    trace_mips_translate_c0("mfc0", rn, reg, sel);
+    trace_mips_translate_c0("mfc0", register_name, reg, sel);
     return;
 
 cp0_unimplemented:
-    qemu_log_mask(LOG_UNIMP, "mfc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    qemu_log_mask(LOG_UNIMP, "mfc0 %s (reg %d sel %d)\n",
+                  register_name, reg, sel);
     gen_mfc0_unimplemented(ctx, arg);
 }
 
 static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
 {
-    const char *rn = "invalid";
+    const char *register_name = "invalid";
 
     if (sel != 0)
         check_insn(ctx, ISA_MIPS32);
@@ -7213,316 +7509,325 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     }
 
     switch (reg) {
-    case 0:
+    case CP0_REGISTER_00:
         switch (sel) {
         case 0:
             gen_helper_mtc0_index(cpu_env, arg);
-            rn = "Index";
+            register_name = "Index";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_mvpcontrol(cpu_env, arg);
-            rn = "MVPControl";
+            register_name = "MVPControl";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             /* ignored */
-            rn = "MVPConf0";
+            register_name = "MVPConf0";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             /* ignored */
-            rn = "MVPConf1";
+            register_name = "MVPConf1";
             break;
         case 4:
             CP0_CHECK(ctx->vp);
             /* ignored */
-            rn = "VPControl";
+            register_name = "VPControl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 1:
+    case CP0_REGISTER_01:
         switch (sel) {
         case 0:
             /* ignored */
-            rn = "Random";
+            register_name = "Random";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpecontrol(cpu_env, arg);
-            rn = "VPEControl";
+            register_name = "VPEControl";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeconf0(cpu_env, arg);
-            rn = "VPEConf0";
+            register_name = "VPEConf0";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeconf1(cpu_env, arg);
-            rn = "VPEConf1";
+            register_name = "VPEConf1";
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_yqmask(cpu_env, arg);
-            rn = "YQMask";
+            register_name = "YQMask";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_st_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, CP0_VPESchedule));
-            rn = "VPESchedule";
+            register_name = "VPESchedule";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_st_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, CP0_VPEScheFBack));
-            rn = "VPEScheFBack";
+            register_name = "VPEScheFBack";
             break;
         case 7:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeopt(cpu_env, arg);
-            rn = "VPEOpt";
+            register_name = "VPEOpt";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 2:
+    case CP0_REGISTER_02:
         switch (sel) {
         case 0:
             gen_helper_mtc0_entrylo0(cpu_env, arg);
-            rn = "EntryLo0";
+            register_name = "EntryLo0";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcstatus(cpu_env, arg);
-            rn = "TCStatus";
+            register_name = "TCStatus";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcbind(cpu_env, arg);
-            rn = "TCBind";
+            register_name = "TCBind";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcrestart(cpu_env, arg);
-            rn = "TCRestart";
+            register_name = "TCRestart";
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tchalt(cpu_env, arg);
-            rn = "TCHalt";
+            register_name = "TCHalt";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tccontext(cpu_env, arg);
-            rn = "TCContext";
+            register_name = "TCContext";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcschedule(cpu_env, arg);
-            rn = "TCSchedule";
+            register_name = "TCSchedule";
             break;
         case 7:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcschefback(cpu_env, arg);
-            rn = "TCScheFBack";
+            register_name = "TCScheFBack";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 3:
+    case CP0_REGISTER_03:
         switch (sel) {
         case 0:
             gen_helper_mtc0_entrylo1(cpu_env, arg);
-            rn = "EntryLo1";
+            register_name = "EntryLo1";
             break;
         case 1:
             CP0_CHECK(ctx->vp);
             /* ignored */
-            rn = "GlobalNumber";
+            register_name = "GlobalNumber";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 4:
+    case CP0_REGISTER_04:
         switch (sel) {
         case 0:
             gen_helper_mtc0_context(cpu_env, arg);
-            rn = "Context";
+            register_name = "Context";
             break;
         case 1:
 //            gen_helper_mtc0_contextconfig(cpu_env, arg); /* SmartMIPS ASE */
-            rn = "ContextConfig";
+            register_name = "ContextConfig";
             goto cp0_unimplemented;
         case 2:
             CP0_CHECK(ctx->ulri);
             tcg_gen_st_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
-            rn = "UserLocal";
+            register_name = "UserLocal";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 5:
+    case CP0_REGISTER_05:
         switch (sel) {
         case 0:
             gen_helper_mtc0_pagemask(cpu_env, arg);
-            rn = "PageMask";
+            register_name = "PageMask";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_pagegrain(cpu_env, arg);
-            rn = "PageGrain";
+            register_name = "PageGrain";
             ctx->base.is_jmp = DISAS_STOP;
             break;
         case 2:
             CP0_CHECK(ctx->sc);
             gen_helper_mtc0_segctl0(cpu_env, arg);
-            rn = "SegCtl0";
+            register_name = "SegCtl0";
             break;
         case 3:
             CP0_CHECK(ctx->sc);
             gen_helper_mtc0_segctl1(cpu_env, arg);
-            rn = "SegCtl1";
+            register_name = "SegCtl1";
             break;
         case 4:
             CP0_CHECK(ctx->sc);
             gen_helper_mtc0_segctl2(cpu_env, arg);
-            rn = "SegCtl2";
+            register_name = "SegCtl2";
             break;
         case 5:
             check_pw(ctx);
             gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_PWBase));
-            rn = "PWBase";
+            register_name = "PWBase";
             break;
         case 6:
             check_pw(ctx);
             gen_helper_mtc0_pwfield(cpu_env, arg);
-            rn = "PWField";
+            register_name = "PWField";
             break;
         case 7:
             check_pw(ctx);
             gen_helper_mtc0_pwsize(cpu_env, arg);
-            rn = "PWSize";
+            register_name = "PWSize";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 6:
+    case CP0_REGISTER_06:
         switch (sel) {
         case 0:
             gen_helper_mtc0_wired(cpu_env, arg);
-            rn = "Wired";
+            register_name = "Wired";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf0(cpu_env, arg);
-            rn = "SRSConf0";
+            register_name = "SRSConf0";
             break;
         case 2:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf1(cpu_env, arg);
-            rn = "SRSConf1";
+            register_name = "SRSConf1";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf2(cpu_env, arg);
-            rn = "SRSConf2";
+            register_name = "SRSConf2";
             break;
         case 4:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf3(cpu_env, arg);
-            rn = "SRSConf3";
+            register_name = "SRSConf3";
             break;
         case 5:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(cpu_env, arg);
-            rn = "SRSConf4";
+            register_name = "SRSConf4";
             break;
         case 6:
             check_pw(ctx);
             gen_helper_mtc0_pwctl(cpu_env, arg);
-            rn = "PWCtl";
+            register_name = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 7:
+    case CP0_REGISTER_07:
         switch (sel) {
         case 0:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_hwrena(cpu_env, arg);
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "HWREna";
+            register_name = "HWREna";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 8:
+    case CP0_REGISTER_08:
         switch (sel) {
         case 0:
             /* ignored */
-            rn = "BadVAddr";
+            register_name = "BadVAddr";
             break;
         case 1:
             /* ignored */
-            rn = "BadInstr";
+            register_name = "BadInstr";
             break;
         case 2:
             /* ignored */
-            rn = "BadInstrP";
+            register_name = "BadInstrP";
             break;
         case 3:
             /* ignored */
-            rn = "BadInstrX";
+            register_name = "BadInstrX";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 9:
+    case CP0_REGISTER_09:
         switch (sel) {
         case 0:
             gen_helper_mtc0_count(cpu_env, arg);
-            rn = "Count";
+            register_name = "Count";
             break;
-        /* 6,7 are implementation dependent */
+        case 6:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mtc0_saari(cpu_env, arg);
+            register_name = "SAARI";
+            break;
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mtc0_saar(cpu_env, arg);
+            register_name = "SAAR";
+            break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 10:
+    case CP0_REGISTER_10:
         switch (sel) {
         case 0:
             gen_helper_mtc0_entryhi(cpu_env, arg);
-            rn = "EntryHi";
+            register_name = "EntryHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 11:
+    case CP0_REGISTER_11:
         switch (sel) {
         case 0:
             gen_helper_mtc0_compare(cpu_env, arg);
-            rn = "Compare";
+            register_name = "Compare";
             break;
         /* 6,7 are implementation dependent */
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 12:
+    case CP0_REGISTER_12:
         switch (sel) {
         case 0:
             save_cpu_state(ctx, 1);
@@ -7530,34 +7835,34 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             /* DISAS_STOP isn't good enough here, hflags may have changed. */
             gen_save_pc(ctx->base.pc_next + 4);
             ctx->base.is_jmp = DISAS_EXIT;
-            rn = "Status";
+            register_name = "Status";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_intctl(cpu_env, arg);
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "IntCtl";
+            register_name = "IntCtl";
             break;
         case 2:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsctl(cpu_env, arg);
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "SRSCtl";
+            register_name = "SRSCtl";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_SRSMap));
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "SRSMap";
+            register_name = "SRSMap";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 13:
+    case CP0_REGISTER_13:
         switch (sel) {
         case 0:
             save_cpu_state(ctx, 1);
@@ -7567,107 +7872,107 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
              * translated code to check for pending interrupts.  */
             gen_save_pc(ctx->base.pc_next + 4);
             ctx->base.is_jmp = DISAS_EXIT;
-            rn = "Cause";
+            register_name = "Cause";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 14:
+    case CP0_REGISTER_14:
         switch (sel) {
         case 0:
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EPC));
-            rn = "EPC";
+            register_name = "EPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 15:
+    case CP0_REGISTER_15:
         switch (sel) {
         case 0:
             /* ignored */
-            rn = "PRid";
+            register_name = "PRid";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_ebase(cpu_env, arg);
-            rn = "EBase";
+            register_name = "EBase";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 16:
+    case CP0_REGISTER_16:
         switch (sel) {
         case 0:
             gen_helper_mtc0_config0(cpu_env, arg);
-            rn = "Config";
+            register_name = "Config";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             break;
         case 1:
             /* ignored, read only */
-            rn = "Config1";
+            register_name = "Config1";
             break;
         case 2:
             gen_helper_mtc0_config2(cpu_env, arg);
-            rn = "Config2";
+            register_name = "Config2";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             break;
         case 3:
             gen_helper_mtc0_config3(cpu_env, arg);
-            rn = "Config3";
+            register_name = "Config3";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             break;
         case 4:
             gen_helper_mtc0_config4(cpu_env, arg);
-            rn = "Config4";
+            register_name = "Config4";
             ctx->base.is_jmp = DISAS_STOP;
             break;
         case 5:
             gen_helper_mtc0_config5(cpu_env, arg);
-            rn = "Config5";
+            register_name = "Config5";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             break;
         /* 6,7 are implementation dependent */
         case 6:
             /* ignored */
-            rn = "Config6";
+            register_name = "Config6";
             break;
         case 7:
             /* ignored */
-            rn = "Config7";
+            register_name = "Config7";
             break;
         default:
-            rn = "Invalid config selector";
+            register_name = "Invalid config selector";
             goto cp0_unimplemented;
         }
         break;
-    case 17:
+    case CP0_REGISTER_17:
         switch (sel) {
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
-            rn = "LLAddr";
+            register_name = "LLAddr";
             break;
         case 1:
             CP0_CHECK(ctx->mrp);
             gen_helper_mtc0_maar(cpu_env, arg);
-            rn = "MAAR";
+            register_name = "MAAR";
             break;
         case 2:
             CP0_CHECK(ctx->mrp);
             gen_helper_mtc0_maari(cpu_env, arg);
-            rn = "MAARI";
+            register_name = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 18:
+    case CP0_REGISTER_18:
         switch (sel) {
         case 0:
         case 1:
@@ -7679,13 +7984,13 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 7:
             CP0_CHECK(ctx->CP0_Config1 & (1 << CP0C1_WR));
             gen_helper_0e1i(mtc0_watchlo, arg, sel);
-            rn = "WatchLo";
+            register_name = "WatchLo";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 19:
+    case CP0_REGISTER_19:
         switch (sel) {
         case 0:
         case 1:
@@ -7697,59 +8002,59 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 7:
             CP0_CHECK(ctx->CP0_Config1 & (1 << CP0C1_WR));
             gen_helper_0e1i(mtc0_watchhi, arg, sel);
-            rn = "WatchHi";
+            register_name = "WatchHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 20:
+    case CP0_REGISTER_20:
         switch (sel) {
         case 0:
 #if defined(TARGET_MIPS64)
             check_insn(ctx, ISA_MIPS3);
             gen_helper_mtc0_xcontext(cpu_env, arg);
-            rn = "XContext";
+            register_name = "XContext";
             break;
 #endif
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 21:
+    case CP0_REGISTER_21:
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
         CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
         switch (sel) {
         case 0:
             gen_helper_mtc0_framemask(cpu_env, arg);
-            rn = "Framemask";
+            register_name = "Framemask";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 22:
+    case CP0_REGISTER_22:
         /* ignored */
-        rn = "Diagnostic"; /* implementation dependent */
+        register_name = "Diagnostic"; /* implementation dependent */
         break;
-    case 23:
+    case CP0_REGISTER_23:
         switch (sel) {
         case 0:
             gen_helper_mtc0_debug(cpu_env, arg); /* EJTAG support */
             /* DISAS_STOP isn't good enough here, hflags may have changed. */
             gen_save_pc(ctx->base.pc_next + 4);
             ctx->base.is_jmp = DISAS_EXIT;
-            rn = "Debug";
+            register_name = "Debug";
             break;
         case 1:
 //            gen_helper_mtc0_tracecontrol(cpu_env, arg); /* PDtrace support */
-            rn = "TraceControl";
+            register_name = "TraceControl";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             goto cp0_unimplemented;
         case 2:
 //            gen_helper_mtc0_tracecontrol2(cpu_env, arg); /* PDtrace support */
-            rn = "TraceControl2";
+            register_name = "TraceControl2";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             goto cp0_unimplemented;
@@ -7757,7 +8062,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
 //            gen_helper_mtc0_usertracedata(cpu_env, arg); /* PDtrace support */
-            rn = "UserTraceData";
+            register_name = "UserTraceData";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             goto cp0_unimplemented;
@@ -7765,142 +8070,142 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
 //            gen_helper_mtc0_tracebpc(cpu_env, arg); /* PDtrace support */
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "TraceBPC";
+            register_name = "TraceBPC";
             goto cp0_unimplemented;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 24:
+    case CP0_REGISTER_24:
         switch (sel) {
         case 0:
             /* EJTAG support */
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DEPC));
-            rn = "DEPC";
+            register_name = "DEPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 25:
+    case CP0_REGISTER_25:
         switch (sel) {
         case 0:
             gen_helper_mtc0_performance0(cpu_env, arg);
-            rn = "Performance0";
+            register_name = "Performance0";
             break;
         case 1:
 //            gen_helper_mtc0_performance1(arg);
-            rn = "Performance1";
+            register_name = "Performance1";
             goto cp0_unimplemented;
         case 2:
 //            gen_helper_mtc0_performance2(arg);
-            rn = "Performance2";
+            register_name = "Performance2";
             goto cp0_unimplemented;
         case 3:
 //            gen_helper_mtc0_performance3(arg);
-            rn = "Performance3";
+            register_name = "Performance3";
             goto cp0_unimplemented;
         case 4:
 //            gen_helper_mtc0_performance4(arg);
-            rn = "Performance4";
+            register_name = "Performance4";
             goto cp0_unimplemented;
         case 5:
 //            gen_helper_mtc0_performance5(arg);
-            rn = "Performance5";
+            register_name = "Performance5";
             goto cp0_unimplemented;
         case 6:
 //            gen_helper_mtc0_performance6(arg);
-            rn = "Performance6";
+            register_name = "Performance6";
             goto cp0_unimplemented;
         case 7:
 //            gen_helper_mtc0_performance7(arg);
-            rn = "Performance7";
+            register_name = "Performance7";
             goto cp0_unimplemented;
         default:
             goto cp0_unimplemented;
         }
        break;
-    case 26:
+    case CP0_REGISTER_26:
         switch (sel) {
         case 0:
             gen_helper_mtc0_errctl(cpu_env, arg);
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "ErrCtl";
+            register_name = "ErrCtl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 27:
+    case CP0_REGISTER_27:
         switch (sel) {
         case 0:
         case 1:
         case 2:
         case 3:
             /* ignored */
-            rn = "CacheErr";
+            register_name = "CacheErr";
             break;
         default:
             goto cp0_unimplemented;
         }
        break;
-    case 28:
+    case CP0_REGISTER_28:
         switch (sel) {
         case 0:
         case 2:
         case 4:
         case 6:
             gen_helper_mtc0_taglo(cpu_env, arg);
-            rn = "TagLo";
+            register_name = "TagLo";
             break;
         case 1:
         case 3:
         case 5:
         case 7:
             gen_helper_mtc0_datalo(cpu_env, arg);
-            rn = "DataLo";
+            register_name = "DataLo";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 29:
+    case CP0_REGISTER_29:
         switch (sel) {
         case 0:
         case 2:
         case 4:
         case 6:
             gen_helper_mtc0_taghi(cpu_env, arg);
-            rn = "TagHi";
+            register_name = "TagHi";
             break;
         case 1:
         case 3:
         case 5:
         case 7:
             gen_helper_mtc0_datahi(cpu_env, arg);
-            rn = "DataHi";
+            register_name = "DataHi";
             break;
         default:
-            rn = "invalid sel";
+            register_name = "invalid sel";
             goto cp0_unimplemented;
         }
        break;
-    case 30:
+    case CP0_REGISTER_30:
         switch (sel) {
         case 0:
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_ErrorEPC));
-            rn = "ErrorEPC";
+            register_name = "ErrorEPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 31:
+    case CP0_REGISTER_31:
         switch (sel) {
         case 0:
             /* EJTAG support */
             gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
-            rn = "DESAVE";
+            register_name = "DESAVE";
             break;
         case 2:
         case 3:
@@ -7911,7 +8216,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             CP0_CHECK(ctx->kscrexist & (1 << sel));
             tcg_gen_st_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
-            rn = "KScratch";
+            register_name = "KScratch";
             break;
         default:
             goto cp0_unimplemented;
@@ -7920,7 +8225,7 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     default:
        goto cp0_unimplemented;
     }
-    trace_mips_translate_c0("mtc0", rn, reg, sel);
+    trace_mips_translate_c0("mtc0", register_name, reg, sel);
 
     /* For simplicity assume that all writes can cause interrupts.  */
     if (tb_cflags(ctx->base.tb) & CF_USE_ICOUNT) {
@@ -7933,297 +8238,298 @@ static void gen_mtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     return;
 
 cp0_unimplemented:
-    qemu_log_mask(LOG_UNIMP, "mtc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    qemu_log_mask(LOG_UNIMP, "mtc0 %s (reg %d sel %d)\n",
+                  register_name, reg, sel);
 }
 
 #if defined(TARGET_MIPS64)
 static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
 {
-    const char *rn = "invalid";
+    const char *register_name = "invalid";
 
     if (sel != 0)
         check_insn(ctx, ISA_MIPS64);
 
     switch (reg) {
-    case 0:
+    case CP0_REGISTER_00:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Index));
-            rn = "Index";
+            register_name = "Index";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpcontrol(arg, cpu_env);
-            rn = "MVPControl";
+            register_name = "MVPControl";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpconf0(arg, cpu_env);
-            rn = "MVPConf0";
+            register_name = "MVPConf0";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_mvpconf1(arg, cpu_env);
-            rn = "MVPConf1";
+            register_name = "MVPConf1";
             break;
         case 4:
             CP0_CHECK(ctx->vp);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPControl));
-            rn = "VPControl";
+            register_name = "VPControl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 1:
+    case CP0_REGISTER_01:
         switch (sel) {
         case 0:
             CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
             gen_helper_mfc0_random(arg, cpu_env);
-            rn = "Random";
+            register_name = "Random";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEControl));
-            rn = "VPEControl";
+            register_name = "VPEControl";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf0));
-            rn = "VPEConf0";
+            register_name = "VPEConf0";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEConf1));
-            rn = "VPEConf1";
+            register_name = "VPEConf1";
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_YQMask));
-            rn = "YQMask";
+            register_name = "YQMask";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPESchedule));
-            rn = "VPESchedule";
+            register_name = "VPESchedule";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPEScheFBack));
-            rn = "VPEScheFBack";
+            register_name = "VPEScheFBack";
             break;
         case 7:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_VPEOpt));
-            rn = "VPEOpt";
+            register_name = "VPEOpt";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 2:
+    case CP0_REGISTER_02:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo0));
-            rn = "EntryLo0";
+            register_name = "EntryLo0";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcstatus(arg, cpu_env);
-            rn = "TCStatus";
+            register_name = "TCStatus";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mfc0_tcbind(arg, cpu_env);
-            rn = "TCBind";
+            register_name = "TCBind";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tcrestart(arg, cpu_env);
-            rn = "TCRestart";
+            register_name = "TCRestart";
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tchalt(arg, cpu_env);
-            rn = "TCHalt";
+            register_name = "TCHalt";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tccontext(arg, cpu_env);
-            rn = "TCContext";
+            register_name = "TCContext";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tcschedule(arg, cpu_env);
-            rn = "TCSchedule";
+            register_name = "TCSchedule";
             break;
         case 7:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_dmfc0_tcschefback(arg, cpu_env);
-            rn = "TCScheFBack";
+            register_name = "TCScheFBack";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 3:
+    case CP0_REGISTER_03:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryLo1));
-            rn = "EntryLo1";
+            register_name = "EntryLo1";
             break;
         case 1:
             CP0_CHECK(ctx->vp);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_GlobalNumber));
-            rn = "GlobalNumber";
+            register_name = "GlobalNumber";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 4:
+    case CP0_REGISTER_04:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_Context));
-            rn = "Context";
+            register_name = "Context";
             break;
         case 1:
 //            gen_helper_dmfc0_contextconfig(arg); /* SmartMIPS ASE */
-            rn = "ContextConfig";
+            register_name = "ContextConfig";
             goto cp0_unimplemented;
         case 2:
             CP0_CHECK(ctx->ulri);
             tcg_gen_ld_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
-            rn = "UserLocal";
+            register_name = "UserLocal";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 5:
+    case CP0_REGISTER_05:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageMask));
-            rn = "PageMask";
+            register_name = "PageMask";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PageGrain));
-            rn = "PageGrain";
+            register_name = "PageGrain";
             break;
         case 2:
             CP0_CHECK(ctx->sc);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SegCtl0));
-            rn = "SegCtl0";
+            register_name = "SegCtl0";
             break;
         case 3:
             CP0_CHECK(ctx->sc);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SegCtl1));
-            rn = "SegCtl1";
+            register_name = "SegCtl1";
             break;
         case 4:
             CP0_CHECK(ctx->sc);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_SegCtl2));
-            rn = "SegCtl2";
+            register_name = "SegCtl2";
             break;
         case 5:
             check_pw(ctx);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
-            rn = "PWBase";
+            register_name = "PWBase";
             break;
         case 6:
             check_pw(ctx);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWField));
-            rn = "PWField";
+            register_name = "PWField";
             break;
         case 7:
             check_pw(ctx);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWSize));
-            rn = "PWSize";
+            register_name = "PWSize";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 6:
+    case CP0_REGISTER_06:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Wired));
-            rn = "Wired";
+            register_name = "Wired";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf0));
-            rn = "SRSConf0";
+            register_name = "SRSConf0";
             break;
         case 2:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf1));
-            rn = "SRSConf1";
+            register_name = "SRSConf1";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf2));
-            rn = "SRSConf2";
+            register_name = "SRSConf2";
             break;
         case 4:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf3));
-            rn = "SRSConf3";
+            register_name = "SRSConf3";
             break;
         case 5:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSConf4));
-            rn = "SRSConf4";
+            register_name = "SRSConf4";
             break;
         case 6:
             check_pw(ctx);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PWCtl));
-            rn = "PWCtl";
+            register_name = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 7:
+    case CP0_REGISTER_07:
         switch (sel) {
         case 0:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_HWREna));
-            rn = "HWREna";
+            register_name = "HWREna";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 8:
+    case CP0_REGISTER_08:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_BadVAddr));
-            rn = "BadVAddr";
+            register_name = "BadVAddr";
             break;
         case 1:
             CP0_CHECK(ctx->bi);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstr));
-            rn = "BadInstr";
+            register_name = "BadInstr";
             break;
         case 2:
             CP0_CHECK(ctx->bp);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstrP));
-            rn = "BadInstrP";
+            register_name = "BadInstrP";
             break;
         case 3:
             CP0_CHECK(ctx->bi);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_BadInstrX));
             tcg_gen_andi_tl(arg, arg, ~0xffff);
-            rn = "BadInstrX";
+            register_name = "BadInstrX";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 9:
+    case CP0_REGISTER_09:
         switch (sel) {
         case 0:
             /* Mark as an IO operation because we read the time.  */
@@ -8239,160 +8545,169 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
                ensure we break completely out of translated code.  */
             gen_save_pc(ctx->base.pc_next + 4);
             ctx->base.is_jmp = DISAS_EXIT;
-            rn = "Count";
+            register_name = "Count";
             break;
-        /* 6,7 are implementation dependent */
+        case 6:
+            CP0_CHECK(ctx->saar);
+            gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SAARI));
+            register_name = "SAARI";
+            break;
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_dmfc0_saar(arg, cpu_env);
+            register_name = "SAAR";
+            break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 10:
+    case CP0_REGISTER_10:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EntryHi));
-            rn = "EntryHi";
+            register_name = "EntryHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 11:
+    case CP0_REGISTER_11:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Compare));
-            rn = "Compare";
+            register_name = "Compare";
             break;
         /* 6,7 are implementation dependent */
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 12:
+    case CP0_REGISTER_12:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Status));
-            rn = "Status";
+            register_name = "Status";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_IntCtl));
-            rn = "IntCtl";
+            register_name = "IntCtl";
             break;
         case 2:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSCtl));
-            rn = "SRSCtl";
+            register_name = "SRSCtl";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_SRSMap));
-            rn = "SRSMap";
+            register_name = "SRSMap";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 13:
+    case CP0_REGISTER_13:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Cause));
-            rn = "Cause";
+            register_name = "Cause";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 14:
+    case CP0_REGISTER_14:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EPC));
-            rn = "EPC";
+            register_name = "EPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 15:
+    case CP0_REGISTER_15:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_PRid));
-            rn = "PRid";
+            register_name = "PRid";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EBase));
-            rn = "EBase";
+            register_name = "EBase";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             CP0_CHECK(ctx->cmgcr);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_CMGCRBase));
-            rn = "CMGCRBase";
+            register_name = "CMGCRBase";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 16:
+    case CP0_REGISTER_16:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config0));
-            rn = "Config";
+            register_name = "Config";
             break;
         case 1:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config1));
-            rn = "Config1";
+            register_name = "Config1";
             break;
         case 2:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config2));
-            rn = "Config2";
+            register_name = "Config2";
             break;
         case 3:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config3));
-            rn = "Config3";
+            register_name = "Config3";
             break;
         case 4:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config4));
-            rn = "Config4";
+            register_name = "Config4";
             break;
         case 5:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config5));
-            rn = "Config5";
+            register_name = "Config5";
             break;
        /* 6,7 are implementation dependent */
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config6));
-            rn = "Config6";
+            register_name = "Config6";
             break;
         case 7:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Config7));
-            rn = "Config7";
+            register_name = "Config7";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 17:
+    case CP0_REGISTER_17:
         switch (sel) {
         case 0:
             gen_helper_dmfc0_lladdr(arg, cpu_env);
-            rn = "LLAddr";
+            register_name = "LLAddr";
             break;
         case 1:
             CP0_CHECK(ctx->mrp);
             gen_helper_dmfc0_maar(arg, cpu_env);
-            rn = "MAAR";
+            register_name = "MAAR";
             break;
         case 2:
             CP0_CHECK(ctx->mrp);
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_MAARI));
-            rn = "MAARI";
+            register_name = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 18:
+    case CP0_REGISTER_18:
         switch (sel) {
         case 0:
         case 1:
@@ -8404,13 +8719,13 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 7:
             CP0_CHECK(ctx->CP0_Config1 & (1 << CP0C1_WR));
             gen_helper_1e0i(dmfc0_watchlo, arg, sel);
-            rn = "WatchLo";
+            register_name = "WatchLo";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 19:
+    case CP0_REGISTER_19:
         switch (sel) {
         case 0:
         case 1:
@@ -8422,125 +8737,125 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 7:
             CP0_CHECK(ctx->CP0_Config1 & (1 << CP0C1_WR));
             gen_helper_1e0i(mfc0_watchhi, arg, sel);
-            rn = "WatchHi";
+            register_name = "WatchHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 20:
+    case CP0_REGISTER_20:
         switch (sel) {
         case 0:
             check_insn(ctx, ISA_MIPS3);
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_XContext));
-            rn = "XContext";
+            register_name = "XContext";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 21:
+    case CP0_REGISTER_21:
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
         CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Framemask));
-            rn = "Framemask";
+            register_name = "Framemask";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 22:
+    case CP0_REGISTER_22:
         tcg_gen_movi_tl(arg, 0); /* unimplemented */
-        rn = "'Diagnostic"; /* implementation dependent */
+        register_name = "'Diagnostic"; /* implementation dependent */
         break;
-    case 23:
+    case CP0_REGISTER_23:
         switch (sel) {
         case 0:
             gen_helper_mfc0_debug(arg, cpu_env); /* EJTAG support */
-            rn = "Debug";
+            register_name = "Debug";
             break;
         case 1:
 //            gen_helper_dmfc0_tracecontrol(arg, cpu_env); /* PDtrace support */
-            rn = "TraceControl";
+            register_name = "TraceControl";
             goto cp0_unimplemented;
         case 2:
 //            gen_helper_dmfc0_tracecontrol2(arg, cpu_env); /* PDtrace support */
-            rn = "TraceControl2";
+            register_name = "TraceControl2";
             goto cp0_unimplemented;
         case 3:
 //            gen_helper_dmfc0_usertracedata(arg, cpu_env); /* PDtrace support */
-            rn = "UserTraceData";
+            register_name = "UserTraceData";
             goto cp0_unimplemented;
         case 4:
 //            gen_helper_dmfc0_tracebpc(arg, cpu_env); /* PDtrace support */
-            rn = "TraceBPC";
+            register_name = "TraceBPC";
             goto cp0_unimplemented;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 24:
+    case CP0_REGISTER_24:
         switch (sel) {
         case 0:
             /* EJTAG support */
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DEPC));
-            rn = "DEPC";
+            register_name = "DEPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 25:
+    case CP0_REGISTER_25:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_Performance0));
-            rn = "Performance0";
+            register_name = "Performance0";
             break;
         case 1:
 //            gen_helper_dmfc0_performance1(arg);
-            rn = "Performance1";
+            register_name = "Performance1";
             goto cp0_unimplemented;
         case 2:
 //            gen_helper_dmfc0_performance2(arg);
-            rn = "Performance2";
+            register_name = "Performance2";
             goto cp0_unimplemented;
         case 3:
 //            gen_helper_dmfc0_performance3(arg);
-            rn = "Performance3";
+            register_name = "Performance3";
             goto cp0_unimplemented;
         case 4:
 //            gen_helper_dmfc0_performance4(arg);
-            rn = "Performance4";
+            register_name = "Performance4";
             goto cp0_unimplemented;
         case 5:
 //            gen_helper_dmfc0_performance5(arg);
-            rn = "Performance5";
+            register_name = "Performance5";
             goto cp0_unimplemented;
         case 6:
 //            gen_helper_dmfc0_performance6(arg);
-            rn = "Performance6";
+            register_name = "Performance6";
             goto cp0_unimplemented;
         case 7:
 //            gen_helper_dmfc0_performance7(arg);
-            rn = "Performance7";
+            register_name = "Performance7";
             goto cp0_unimplemented;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 26:
+    case CP0_REGISTER_26:
         switch (sel) {
         case 0:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_ErrCtl));
-            rn = "ErrCtl";
+            register_name = "ErrCtl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 27:
+    case CP0_REGISTER_27:
         switch (sel) {
         /* ignored */
         case 0:
@@ -8548,68 +8863,68 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 2:
         case 3:
             tcg_gen_movi_tl(arg, 0); /* unimplemented */
-            rn = "CacheErr";
+            register_name = "CacheErr";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 28:
+    case CP0_REGISTER_28:
         switch (sel) {
         case 0:
         case 2:
         case 4:
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_TagLo));
-            rn = "TagLo";
+            register_name = "TagLo";
             break;
         case 1:
         case 3:
         case 5:
         case 7:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DataLo));
-            rn = "DataLo";
+            register_name = "DataLo";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 29:
+    case CP0_REGISTER_29:
         switch (sel) {
         case 0:
         case 2:
         case 4:
         case 6:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_TagHi));
-            rn = "TagHi";
+            register_name = "TagHi";
             break;
         case 1:
         case 3:
         case 5:
         case 7:
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DataHi));
-            rn = "DataHi";
+            register_name = "DataHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 30:
+    case CP0_REGISTER_30:
         switch (sel) {
         case 0:
             tcg_gen_ld_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_ErrorEPC));
-            rn = "ErrorEPC";
+            register_name = "ErrorEPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 31:
+    case CP0_REGISTER_31:
         switch (sel) {
         case 0:
             /* EJTAG support */
             gen_mfc0_load32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
-            rn = "DESAVE";
+            register_name = "DESAVE";
             break;
         case 2:
         case 3:
@@ -8620,7 +8935,7 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             CP0_CHECK(ctx->kscrexist & (1 << sel));
             tcg_gen_ld_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
-            rn = "KScratch";
+            register_name = "KScratch";
             break;
         default:
             goto cp0_unimplemented;
@@ -8629,17 +8944,18 @@ static void gen_dmfc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     default:
         goto cp0_unimplemented;
     }
-    trace_mips_translate_c0("dmfc0", rn, reg, sel);
+    trace_mips_translate_c0("dmfc0", register_name, reg, sel);
     return;
 
 cp0_unimplemented:
-    qemu_log_mask(LOG_UNIMP, "dmfc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    qemu_log_mask(LOG_UNIMP, "dmfc0 %s (reg %d sel %d)\n",
+                  register_name, reg, sel);
     gen_mfc0_unimplemented(ctx, arg);
 }
 
 static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
 {
-    const char *rn = "invalid";
+    const char *register_name = "invalid";
 
     if (sel != 0)
         check_insn(ctx, ISA_MIPS64);
@@ -8649,308 +8965,317 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     }
 
     switch (reg) {
-    case 0:
+    case CP0_REGISTER_00:
         switch (sel) {
         case 0:
             gen_helper_mtc0_index(cpu_env, arg);
-            rn = "Index";
+            register_name = "Index";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_mvpcontrol(cpu_env, arg);
-            rn = "MVPControl";
+            register_name = "MVPControl";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             /* ignored */
-            rn = "MVPConf0";
+            register_name = "MVPConf0";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             /* ignored */
-            rn = "MVPConf1";
+            register_name = "MVPConf1";
             break;
         case 4:
             CP0_CHECK(ctx->vp);
             /* ignored */
-            rn = "VPControl";
+            register_name = "VPControl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 1:
+    case CP0_REGISTER_01:
         switch (sel) {
         case 0:
             /* ignored */
-            rn = "Random";
+            register_name = "Random";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpecontrol(cpu_env, arg);
-            rn = "VPEControl";
+            register_name = "VPEControl";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeconf0(cpu_env, arg);
-            rn = "VPEConf0";
+            register_name = "VPEConf0";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeconf1(cpu_env, arg);
-            rn = "VPEConf1";
+            register_name = "VPEConf1";
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_yqmask(cpu_env, arg);
-            rn = "YQMask";
+            register_name = "YQMask";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPESchedule));
-            rn = "VPESchedule";
+            register_name = "VPESchedule";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_VPEScheFBack));
-            rn = "VPEScheFBack";
+            register_name = "VPEScheFBack";
             break;
         case 7:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_vpeopt(cpu_env, arg);
-            rn = "VPEOpt";
+            register_name = "VPEOpt";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 2:
+    case CP0_REGISTER_02:
         switch (sel) {
         case 0:
             gen_helper_dmtc0_entrylo0(cpu_env, arg);
-            rn = "EntryLo0";
+            register_name = "EntryLo0";
             break;
         case 1:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcstatus(cpu_env, arg);
-            rn = "TCStatus";
+            register_name = "TCStatus";
             break;
         case 2:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcbind(cpu_env, arg);
-            rn = "TCBind";
+            register_name = "TCBind";
             break;
         case 3:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcrestart(cpu_env, arg);
-            rn = "TCRestart";
+            register_name = "TCRestart";
             break;
         case 4:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tchalt(cpu_env, arg);
-            rn = "TCHalt";
+            register_name = "TCHalt";
             break;
         case 5:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tccontext(cpu_env, arg);
-            rn = "TCContext";
+            register_name = "TCContext";
             break;
         case 6:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcschedule(cpu_env, arg);
-            rn = "TCSchedule";
+            register_name = "TCSchedule";
             break;
         case 7:
             CP0_CHECK(ctx->insn_flags & ASE_MT);
             gen_helper_mtc0_tcschefback(cpu_env, arg);
-            rn = "TCScheFBack";
+            register_name = "TCScheFBack";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 3:
+    case CP0_REGISTER_03:
         switch (sel) {
         case 0:
             gen_helper_dmtc0_entrylo1(cpu_env, arg);
-            rn = "EntryLo1";
+            register_name = "EntryLo1";
             break;
         case 1:
             CP0_CHECK(ctx->vp);
             /* ignored */
-            rn = "GlobalNumber";
+            register_name = "GlobalNumber";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 4:
+    case CP0_REGISTER_04:
         switch (sel) {
         case 0:
             gen_helper_mtc0_context(cpu_env, arg);
-            rn = "Context";
+            register_name = "Context";
             break;
         case 1:
 //           gen_helper_mtc0_contextconfig(cpu_env, arg); /* SmartMIPS ASE */
-            rn = "ContextConfig";
+            register_name = "ContextConfig";
             goto cp0_unimplemented;
         case 2:
             CP0_CHECK(ctx->ulri);
             tcg_gen_st_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, active_tc.CP0_UserLocal));
-            rn = "UserLocal";
+            register_name = "UserLocal";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 5:
+    case CP0_REGISTER_05:
         switch (sel) {
         case 0:
             gen_helper_mtc0_pagemask(cpu_env, arg);
-            rn = "PageMask";
+            register_name = "PageMask";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_pagegrain(cpu_env, arg);
-            rn = "PageGrain";
+            register_name = "PageGrain";
             break;
         case 2:
             CP0_CHECK(ctx->sc);
             gen_helper_mtc0_segctl0(cpu_env, arg);
-            rn = "SegCtl0";
+            register_name = "SegCtl0";
             break;
         case 3:
             CP0_CHECK(ctx->sc);
             gen_helper_mtc0_segctl1(cpu_env, arg);
-            rn = "SegCtl1";
+            register_name = "SegCtl1";
             break;
         case 4:
             CP0_CHECK(ctx->sc);
             gen_helper_mtc0_segctl2(cpu_env, arg);
-            rn = "SegCtl2";
+            register_name = "SegCtl2";
             break;
         case 5:
             check_pw(ctx);
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_PWBase));
-            rn = "PWBase";
+            register_name = "PWBase";
             break;
         case 6:
             check_pw(ctx);
             gen_helper_mtc0_pwfield(cpu_env, arg);
-            rn = "PWField";
+            register_name = "PWField";
             break;
         case 7:
             check_pw(ctx);
             gen_helper_mtc0_pwsize(cpu_env, arg);
-            rn = "PWSize";
+            register_name = "PWSize";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 6:
+    case CP0_REGISTER_06:
         switch (sel) {
         case 0:
             gen_helper_mtc0_wired(cpu_env, arg);
-            rn = "Wired";
+            register_name = "Wired";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf0(cpu_env, arg);
-            rn = "SRSConf0";
+            register_name = "SRSConf0";
             break;
         case 2:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf1(cpu_env, arg);
-            rn = "SRSConf1";
+            register_name = "SRSConf1";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf2(cpu_env, arg);
-            rn = "SRSConf2";
+            register_name = "SRSConf2";
             break;
         case 4:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf3(cpu_env, arg);
-            rn = "SRSConf3";
+            register_name = "SRSConf3";
             break;
         case 5:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsconf4(cpu_env, arg);
-            rn = "SRSConf4";
+            register_name = "SRSConf4";
             break;
         case 6:
             check_pw(ctx);
             gen_helper_mtc0_pwctl(cpu_env, arg);
-            rn = "PWCtl";
+            register_name = "PWCtl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 7:
+    case CP0_REGISTER_07:
         switch (sel) {
         case 0:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_hwrena(cpu_env, arg);
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "HWREna";
+            register_name = "HWREna";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 8:
+    case CP0_REGISTER_08:
         switch (sel) {
         case 0:
             /* ignored */
-            rn = "BadVAddr";
+            register_name = "BadVAddr";
             break;
         case 1:
             /* ignored */
-            rn = "BadInstr";
+            register_name = "BadInstr";
             break;
         case 2:
             /* ignored */
-            rn = "BadInstrP";
+            register_name = "BadInstrP";
             break;
         case 3:
             /* ignored */
-            rn = "BadInstrX";
+            register_name = "BadInstrX";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 9:
+    case CP0_REGISTER_09:
         switch (sel) {
         case 0:
             gen_helper_mtc0_count(cpu_env, arg);
-            rn = "Count";
+            register_name = "Count";
             break;
-        /* 6,7 are implementation dependent */
+        case 6:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mtc0_saari(cpu_env, arg);
+            register_name = "SAARI";
+            break;
+        case 7:
+            CP0_CHECK(ctx->saar);
+            gen_helper_mtc0_saar(cpu_env, arg);
+            register_name = "SAAR";
+            break;
         default:
             goto cp0_unimplemented;
         }
         /* Stop translation as we may have switched the execution mode */
         ctx->base.is_jmp = DISAS_STOP;
         break;
-    case 10:
+    case CP0_REGISTER_10:
         switch (sel) {
         case 0:
             gen_helper_mtc0_entryhi(cpu_env, arg);
-            rn = "EntryHi";
+            register_name = "EntryHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 11:
+    case CP0_REGISTER_11:
         switch (sel) {
         case 0:
             gen_helper_mtc0_compare(cpu_env, arg);
-            rn = "Compare";
+            register_name = "Compare";
             break;
         /* 6,7 are implementation dependent */
         default:
@@ -8959,7 +9284,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         /* Stop translation as we may have switched the execution mode */
         ctx->base.is_jmp = DISAS_STOP;
         break;
-    case 12:
+    case CP0_REGISTER_12:
         switch (sel) {
         case 0:
             save_cpu_state(ctx, 1);
@@ -8967,34 +9292,34 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             /* DISAS_STOP isn't good enough here, hflags may have changed. */
             gen_save_pc(ctx->base.pc_next + 4);
             ctx->base.is_jmp = DISAS_EXIT;
-            rn = "Status";
+            register_name = "Status";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_intctl(cpu_env, arg);
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "IntCtl";
+            register_name = "IntCtl";
             break;
         case 2:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_srsctl(cpu_env, arg);
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "SRSCtl";
+            register_name = "SRSCtl";
             break;
         case 3:
             check_insn(ctx, ISA_MIPS32R2);
             gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_SRSMap));
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "SRSMap";
+            register_name = "SRSMap";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 13:
+    case CP0_REGISTER_13:
         switch (sel) {
         case 0:
             save_cpu_state(ctx, 1);
@@ -9004,98 +9329,98 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
              * translated code to check for pending interrupts.  */
             gen_save_pc(ctx->base.pc_next + 4);
             ctx->base.is_jmp = DISAS_EXIT;
-            rn = "Cause";
+            register_name = "Cause";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 14:
+    case CP0_REGISTER_14:
         switch (sel) {
         case 0:
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_EPC));
-            rn = "EPC";
+            register_name = "EPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 15:
+    case CP0_REGISTER_15:
         switch (sel) {
         case 0:
             /* ignored */
-            rn = "PRid";
+            register_name = "PRid";
             break;
         case 1:
             check_insn(ctx, ISA_MIPS32R2);
             gen_helper_mtc0_ebase(cpu_env, arg);
-            rn = "EBase";
+            register_name = "EBase";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 16:
+    case CP0_REGISTER_16:
         switch (sel) {
         case 0:
             gen_helper_mtc0_config0(cpu_env, arg);
-            rn = "Config";
+            register_name = "Config";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             break;
         case 1:
             /* ignored, read only */
-            rn = "Config1";
+            register_name = "Config1";
             break;
         case 2:
             gen_helper_mtc0_config2(cpu_env, arg);
-            rn = "Config2";
+            register_name = "Config2";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             break;
         case 3:
             gen_helper_mtc0_config3(cpu_env, arg);
-            rn = "Config3";
+            register_name = "Config3";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             break;
         case 4:
             /* currently ignored */
-            rn = "Config4";
+            register_name = "Config4";
             break;
         case 5:
             gen_helper_mtc0_config5(cpu_env, arg);
-            rn = "Config5";
+            register_name = "Config5";
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
             break;
         /* 6,7 are implementation dependent */
         default:
-            rn = "Invalid config selector";
+            register_name = "Invalid config selector";
             goto cp0_unimplemented;
         }
         break;
-    case 17:
+    case CP0_REGISTER_17:
         switch (sel) {
         case 0:
             gen_helper_mtc0_lladdr(cpu_env, arg);
-            rn = "LLAddr";
+            register_name = "LLAddr";
             break;
         case 1:
             CP0_CHECK(ctx->mrp);
             gen_helper_mtc0_maar(cpu_env, arg);
-            rn = "MAAR";
+            register_name = "MAAR";
             break;
         case 2:
             CP0_CHECK(ctx->mrp);
             gen_helper_mtc0_maari(cpu_env, arg);
-            rn = "MAARI";
+            register_name = "MAARI";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 18:
+    case CP0_REGISTER_18:
         switch (sel) {
         case 0:
         case 1:
@@ -9107,13 +9432,13 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 7:
             CP0_CHECK(ctx->CP0_Config1 & (1 << CP0C1_WR));
             gen_helper_0e1i(mtc0_watchlo, arg, sel);
-            rn = "WatchLo";
+            register_name = "WatchLo";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 19:
+    case CP0_REGISTER_19:
         switch (sel) {
         case 0:
         case 1:
@@ -9125,206 +9450,206 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
         case 7:
             CP0_CHECK(ctx->CP0_Config1 & (1 << CP0C1_WR));
             gen_helper_0e1i(mtc0_watchhi, arg, sel);
-            rn = "WatchHi";
+            register_name = "WatchHi";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 20:
+    case CP0_REGISTER_20:
         switch (sel) {
         case 0:
             check_insn(ctx, ISA_MIPS3);
             gen_helper_mtc0_xcontext(cpu_env, arg);
-            rn = "XContext";
+            register_name = "XContext";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 21:
+    case CP0_REGISTER_21:
        /* Officially reserved, but sel 0 is used for R1x000 framemask */
         CP0_CHECK(!(ctx->insn_flags & ISA_MIPS32R6));
         switch (sel) {
         case 0:
             gen_helper_mtc0_framemask(cpu_env, arg);
-            rn = "Framemask";
+            register_name = "Framemask";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 22:
+    case CP0_REGISTER_22:
         /* ignored */
-        rn = "Diagnostic"; /* implementation dependent */
+        register_name = "Diagnostic"; /* implementation dependent */
         break;
-    case 23:
+    case CP0_REGISTER_23:
         switch (sel) {
         case 0:
             gen_helper_mtc0_debug(cpu_env, arg); /* EJTAG support */
             /* DISAS_STOP isn't good enough here, hflags may have changed. */
             gen_save_pc(ctx->base.pc_next + 4);
             ctx->base.is_jmp = DISAS_EXIT;
-            rn = "Debug";
+            register_name = "Debug";
             break;
         case 1:
 //            gen_helper_mtc0_tracecontrol(cpu_env, arg); /* PDtrace support */
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "TraceControl";
+            register_name = "TraceControl";
             goto cp0_unimplemented;
         case 2:
 //            gen_helper_mtc0_tracecontrol2(cpu_env, arg); /* PDtrace support */
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "TraceControl2";
+            register_name = "TraceControl2";
             goto cp0_unimplemented;
         case 3:
 //            gen_helper_mtc0_usertracedata(cpu_env, arg); /* PDtrace support */
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "UserTraceData";
+            register_name = "UserTraceData";
             goto cp0_unimplemented;
         case 4:
 //            gen_helper_mtc0_tracebpc(cpu_env, arg); /* PDtrace support */
             /* Stop translation as we may have switched the execution mode */
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "TraceBPC";
+            register_name = "TraceBPC";
             goto cp0_unimplemented;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 24:
+    case CP0_REGISTER_24:
         switch (sel) {
         case 0:
             /* EJTAG support */
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_DEPC));
-            rn = "DEPC";
+            register_name = "DEPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 25:
+    case CP0_REGISTER_25:
         switch (sel) {
         case 0:
             gen_helper_mtc0_performance0(cpu_env, arg);
-            rn = "Performance0";
+            register_name = "Performance0";
             break;
         case 1:
 //            gen_helper_mtc0_performance1(cpu_env, arg);
-            rn = "Performance1";
+            register_name = "Performance1";
             goto cp0_unimplemented;
         case 2:
 //            gen_helper_mtc0_performance2(cpu_env, arg);
-            rn = "Performance2";
+            register_name = "Performance2";
             goto cp0_unimplemented;
         case 3:
 //            gen_helper_mtc0_performance3(cpu_env, arg);
-            rn = "Performance3";
+            register_name = "Performance3";
             goto cp0_unimplemented;
         case 4:
 //            gen_helper_mtc0_performance4(cpu_env, arg);
-            rn = "Performance4";
+            register_name = "Performance4";
             goto cp0_unimplemented;
         case 5:
 //            gen_helper_mtc0_performance5(cpu_env, arg);
-            rn = "Performance5";
+            register_name = "Performance5";
             goto cp0_unimplemented;
         case 6:
 //            gen_helper_mtc0_performance6(cpu_env, arg);
-            rn = "Performance6";
+            register_name = "Performance6";
             goto cp0_unimplemented;
         case 7:
 //            gen_helper_mtc0_performance7(cpu_env, arg);
-            rn = "Performance7";
+            register_name = "Performance7";
             goto cp0_unimplemented;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 26:
+    case CP0_REGISTER_26:
         switch (sel) {
         case 0:
             gen_helper_mtc0_errctl(cpu_env, arg);
             ctx->base.is_jmp = DISAS_STOP;
-            rn = "ErrCtl";
+            register_name = "ErrCtl";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 27:
+    case CP0_REGISTER_27:
         switch (sel) {
         case 0:
         case 1:
         case 2:
         case 3:
             /* ignored */
-            rn = "CacheErr";
+            register_name = "CacheErr";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 28:
+    case CP0_REGISTER_28:
         switch (sel) {
         case 0:
         case 2:
         case 4:
         case 6:
             gen_helper_mtc0_taglo(cpu_env, arg);
-            rn = "TagLo";
+            register_name = "TagLo";
             break;
         case 1:
         case 3:
         case 5:
         case 7:
             gen_helper_mtc0_datalo(cpu_env, arg);
-            rn = "DataLo";
+            register_name = "DataLo";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 29:
+    case CP0_REGISTER_29:
         switch (sel) {
         case 0:
         case 2:
         case 4:
         case 6:
             gen_helper_mtc0_taghi(cpu_env, arg);
-            rn = "TagHi";
+            register_name = "TagHi";
             break;
         case 1:
         case 3:
         case 5:
         case 7:
             gen_helper_mtc0_datahi(cpu_env, arg);
-            rn = "DataHi";
+            register_name = "DataHi";
             break;
         default:
-            rn = "invalid sel";
+            register_name = "invalid sel";
             goto cp0_unimplemented;
         }
         break;
-    case 30:
+    case CP0_REGISTER_30:
         switch (sel) {
         case 0:
             tcg_gen_st_tl(arg, cpu_env, offsetof(CPUMIPSState, CP0_ErrorEPC));
-            rn = "ErrorEPC";
+            register_name = "ErrorEPC";
             break;
         default:
             goto cp0_unimplemented;
         }
         break;
-    case 31:
+    case CP0_REGISTER_31:
         switch (sel) {
         case 0:
             /* EJTAG support */
             gen_mtc0_store32(arg, offsetof(CPUMIPSState, CP0_DESAVE));
-            rn = "DESAVE";
+            register_name = "DESAVE";
             break;
         case 2:
         case 3:
@@ -9335,7 +9660,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
             CP0_CHECK(ctx->kscrexist & (1 << sel));
             tcg_gen_st_tl(arg, cpu_env,
                           offsetof(CPUMIPSState, CP0_KScratch[sel-2]));
-            rn = "KScratch";
+            register_name = "KScratch";
             break;
         default:
             goto cp0_unimplemented;
@@ -9344,7 +9669,7 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     default:
         goto cp0_unimplemented;
     }
-    trace_mips_translate_c0("dmtc0", rn, reg, sel);
+    trace_mips_translate_c0("dmtc0", register_name, reg, sel);
 
     /* For simplicity assume that all writes can cause interrupts.  */
     if (tb_cflags(ctx->base.tb) & CF_USE_ICOUNT) {
@@ -9357,7 +9682,8 @@ static void gen_dmtc0(DisasContext *ctx, TCGv arg, int reg, int sel)
     return;
 
 cp0_unimplemented:
-    qemu_log_mask(LOG_UNIMP, "dmtc0 %s (reg %d sel %d)\n", rn, reg, sel);
+    qemu_log_mask(LOG_UNIMP, "dmtc0 %s (reg %d sel %d)\n",
+                  register_name, reg, sel);
 }
 #endif /* TARGET_MIPS64 */
 
@@ -18134,10 +18460,9 @@ enum {
 
 /* extraction utilities */
 
-#define NANOMIPS_EXTRACT_RD(op) ((op >> 7) & 0x7)
-#define NANOMIPS_EXTRACT_RS(op) ((op >> 4) & 0x7)
-#define NANOMIPS_EXTRACT_RS2(op) uMIPS_RS(op)
-#define NANOMIPS_EXTRACT_RS1(op) ((op >> 1) & 0x7)
+#define NANOMIPS_EXTRACT_RT3(op) ((op >> 7) & 0x7)
+#define NANOMIPS_EXTRACT_RS3(op) ((op >> 4) & 0x7)
+#define NANOMIPS_EXTRACT_RD3(op) ((op >> 1) & 0x7)
 #define NANOMIPS_EXTRACT_RD5(op) ((op >> 5) & 0x1f)
 #define NANOMIPS_EXTRACT_RS5(op) (op & 0x1f)
 
@@ -18174,16 +18499,6 @@ static inline int decode_gpr_gpr4_zero(int r)
 
     return map[r & 0xf];
 }
-
-
-/* extraction utilities */
-
-#define NANOMIPS_EXTRACT_RD(op) ((op >> 7) & 0x7)
-#define NANOMIPS_EXTRACT_RS(op) ((op >> 4) & 0x7)
-#define NANOMIPS_EXTRACT_RS2(op) uMIPS_RS(op)
-#define NANOMIPS_EXTRACT_RS1(op) ((op >> 1) & 0x7)
-#define NANOMIPS_EXTRACT_RD5(op) ((op >> 5) & 0x1f)
-#define NANOMIPS_EXTRACT_RS5(op) (op & 0x1f)
 
 
 static void gen_adjust_sp(DisasContext *ctx, int u)
@@ -18244,8 +18559,8 @@ static void gen_restore(DisasContext *ctx, uint8_t rt, uint8_t count,
 
 static void gen_pool16c_nanomips_insn(DisasContext *ctx)
 {
-    int rt = decode_gpr_gpr3(NANOMIPS_EXTRACT_RD(ctx->opcode));
-    int rs = decode_gpr_gpr3(NANOMIPS_EXTRACT_RS(ctx->opcode));
+    int rt = decode_gpr_gpr3(NANOMIPS_EXTRACT_RT3(ctx->opcode));
+    int rs = decode_gpr_gpr3(NANOMIPS_EXTRACT_RS3(ctx->opcode));
 
     switch (extract32(ctx->opcode, 2, 2)) {
     case NM_NOT16:
@@ -19443,6 +19758,10 @@ static void gen_compute_imm_branch(DisasContext *ctx, uint32_t opc,
         goto out;
     }
 
+    /* branch completion */
+    clear_branch_hflags(ctx);
+    ctx->base.is_jmp = DISAS_NORETURN;
+
     if (bcond_compute == 0) {
         /* Uncoditional compact branch */
         gen_goto_tb(ctx, 0, ctx->btarget);
@@ -19482,6 +19801,10 @@ static void gen_compute_nanomips_pbalrsc_branch(DisasContext *ctx, int rs,
     tcg_gen_shli_tl(t0, t0, 1);
     tcg_gen_movi_tl(t1, ctx->base.pc_next + 4);
     gen_op_addr_add(ctx, btarget, t1, t0);
+
+    /* branch completion */
+    clear_branch_hflags(ctx);
+    ctx->base.is_jmp = DISAS_NORETURN;
 
     /* unconditional branch to register */
     tcg_gen_mov_tl(cpu_PC, btarget);
@@ -19620,6 +19943,10 @@ static void gen_compute_compact_branch_nm(DisasContext *ctx, uint32_t opc,
             generate_exception_end(ctx, EXCP_RI);
             goto out;
         }
+
+        /* branch completion */
+        clear_branch_hflags(ctx);
+        ctx->base.is_jmp = DISAS_NORETURN;
 
         /* Generating branch here as compact branches don't have delay slot */
         gen_goto_tb(ctx, 1, ctx->btarget);
@@ -21235,7 +21562,8 @@ static int decode_nanomips_32_48_opc(CPUMIPSState *env, DisasContext *ctx)
                         break;
                     case NM_SCWP:
                         check_xnp(ctx);
-                        gen_scwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5));
+                        gen_scwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5),
+                                 false);
                         break;
                     }
                     break;
@@ -21321,6 +21649,7 @@ static int decode_nanomips_32_48_opc(CPUMIPSState *env, DisasContext *ctx)
                         check_eva(ctx);
                         check_cp0_enabled(ctx);
                         gen_llwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5));
+                        break;
                     default:
                         generate_exception_end(ctx, EXCP_RI);
                         break;
@@ -21338,7 +21667,9 @@ static int decode_nanomips_32_48_opc(CPUMIPSState *env, DisasContext *ctx)
                         check_xnp(ctx);
                         check_eva(ctx);
                         check_cp0_enabled(ctx);
-                        gen_scwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5));
+                        gen_scwp(ctx, rs, 0, rt, extract32(ctx->opcode, 3, 5),
+                                 true);
+                        break;
                     default:
                         generate_exception_end(ctx, EXCP_RI);
                         break;
@@ -21544,9 +21875,9 @@ static int decode_nanomips_32_48_opc(CPUMIPSState *env, DisasContext *ctx)
 static int decode_nanomips_opc(CPUMIPSState *env, DisasContext *ctx)
 {
     uint32_t op;
-    int rt = decode_gpr_gpr3(NANOMIPS_EXTRACT_RD(ctx->opcode));
-    int rs = decode_gpr_gpr3(NANOMIPS_EXTRACT_RS(ctx->opcode));
-    int rd = decode_gpr_gpr3(NANOMIPS_EXTRACT_RS1(ctx->opcode));
+    int rt = decode_gpr_gpr3(NANOMIPS_EXTRACT_RT3(ctx->opcode));
+    int rs = decode_gpr_gpr3(NANOMIPS_EXTRACT_RS3(ctx->opcode));
+    int rd = decode_gpr_gpr3(NANOMIPS_EXTRACT_RD3(ctx->opcode));
     int offset;
     int imm;
 
@@ -21709,7 +22040,7 @@ static int decode_nanomips_opc(CPUMIPSState *env, DisasContext *ctx)
             break;
         case NM_SB16:
             rt = decode_gpr_gpr3_src_store(
-                     NANOMIPS_EXTRACT_RD(ctx->opcode));
+                     NANOMIPS_EXTRACT_RT3(ctx->opcode));
             gen_st(ctx, OPC_SB, rt, rs, offset);
             break;
         case NM_LBU16:
@@ -21728,7 +22059,7 @@ static int decode_nanomips_opc(CPUMIPSState *env, DisasContext *ctx)
             break;
         case NM_SH16:
             rt = decode_gpr_gpr3_src_store(
-                     NANOMIPS_EXTRACT_RD(ctx->opcode));
+                     NANOMIPS_EXTRACT_RT3(ctx->opcode));
             gen_st(ctx, OPC_SH, rt, rs, offset);
             break;
         case NM_LHU16:
@@ -21783,14 +22114,14 @@ static int decode_nanomips_opc(CPUMIPSState *env, DisasContext *ctx)
         break;
     case NM_SW16:
         rt = decode_gpr_gpr3_src_store(
-                 NANOMIPS_EXTRACT_RD(ctx->opcode));
-        rs = decode_gpr_gpr3(NANOMIPS_EXTRACT_RS(ctx->opcode));
+                 NANOMIPS_EXTRACT_RT3(ctx->opcode));
+        rs = decode_gpr_gpr3(NANOMIPS_EXTRACT_RS3(ctx->opcode));
         offset = extract32(ctx->opcode, 0, 4) << 2;
         gen_st(ctx, OPC_SW, rt, rs, offset);
         break;
     case NM_SWGP16:
         rt = decode_gpr_gpr3_src_store(
-                 NANOMIPS_EXTRACT_RD(ctx->opcode));
+                 NANOMIPS_EXTRACT_RT3(ctx->opcode));
         offset = extract32(ctx->opcode, 0, 7) << 2;
         gen_st(ctx, OPC_SW, rt, 28, offset);
         break;
@@ -23698,6 +24029,53 @@ static void decode_opc_special_r6(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
+static void decode_opc_special_tx79(CPUMIPSState *env, DisasContext *ctx)
+{
+    int rs = extract32(ctx->opcode, 21, 5);
+    int rt = extract32(ctx->opcode, 16, 5);
+    int rd = extract32(ctx->opcode, 11, 5);
+    uint32_t op1 = MASK_SPECIAL(ctx->opcode);
+
+    switch (op1) {
+    case OPC_MOVN:         /* Conditional move */
+    case OPC_MOVZ:
+        gen_cond_move(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_MFHI:          /* Move from HI/LO */
+    case OPC_MFLO:
+        gen_HILO(ctx, op1, 0, rd);
+        break;
+    case OPC_MTHI:
+    case OPC_MTLO:          /* Move to HI/LO */
+        gen_HILO(ctx, op1, 0, rs);
+        break;
+    case OPC_MULT:
+    case OPC_MULTU:
+        gen_mul_txx9(ctx, op1, rd, rs, rt);
+        break;
+    case OPC_DIV:
+    case OPC_DIVU:
+        gen_muldiv(ctx, op1, 0, rs, rt);
+        break;
+#if defined(TARGET_MIPS64)
+    case OPC_DMULT:
+    case OPC_DMULTU:
+    case OPC_DDIV:
+    case OPC_DDIVU:
+        check_insn_opc_user_only(ctx, INSN_R5900);
+        gen_muldiv(ctx, op1, 0, rs, rt);
+        break;
+#endif
+    case OPC_JR:
+        gen_compute_branch(ctx, op1, 4, rs, 0, 0, 4);
+        break;
+    default:            /* Invalid */
+        MIPS_INVAL("special_tx79");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
 static void decode_opc_special_legacy(CPUMIPSState *env, DisasContext *ctx)
 {
     int rs, rt, rd, sa;
@@ -23713,7 +24091,7 @@ static void decode_opc_special_legacy(CPUMIPSState *env, DisasContext *ctx)
     case OPC_MOVN:         /* Conditional move */
     case OPC_MOVZ:
         check_insn(ctx, ISA_MIPS4 | ISA_MIPS32 |
-                   INSN_LOONGSON2E | INSN_LOONGSON2F | INSN_R5900);
+                   INSN_LOONGSON2E | INSN_LOONGSON2F);
         gen_cond_move(ctx, op1, rd, rs, rt);
         break;
     case OPC_MFHI:          /* Move from HI/LO */
@@ -23740,8 +24118,6 @@ static void decode_opc_special_legacy(CPUMIPSState *env, DisasContext *ctx)
             check_insn(ctx, INSN_VR54XX);
             op1 = MASK_MUL_VR54XX(ctx->opcode);
             gen_mul_vr54xx(ctx, op1, rd, rs, rt);
-        } else if (ctx->insn_flags & INSN_R5900) {
-            gen_mul_txx9(ctx, op1, rd, rs, rt);
         } else {
             gen_muldiv(ctx, op1, rd & 3, rs, rt);
         }
@@ -23756,7 +24132,6 @@ static void decode_opc_special_legacy(CPUMIPSState *env, DisasContext *ctx)
     case OPC_DDIV:
     case OPC_DDIVU:
         check_insn(ctx, ISA_MIPS3);
-        check_insn_opc_user_only(ctx, INSN_R5900);
         check_mips_64(ctx);
         gen_muldiv(ctx, op1, 0, rs, rt);
         break;
@@ -23983,11 +24358,2245 @@ static void decode_opc_special(CPUMIPSState *env, DisasContext *ctx)
     default:
         if (ctx->insn_flags & ISA_MIPS32R6) {
             decode_opc_special_r6(env, ctx);
+        } else if (ctx->insn_flags & INSN_R5900) {
+            decode_opc_special_tx79(env, ctx);
         } else {
             decode_opc_special_legacy(env, ctx);
         }
     }
 }
+
+
+#if !defined(TARGET_MIPS64)
+
+/* MXU accumulate add/subtract 1-bit pattern 'aptn1' */
+#define MXU_APTN1_A    0
+#define MXU_APTN1_S    1
+
+/* MXU accumulate add/subtract 2-bit pattern 'aptn2' */
+#define MXU_APTN2_AA    0
+#define MXU_APTN2_AS    1
+#define MXU_APTN2_SA    2
+#define MXU_APTN2_SS    3
+
+/* MXU execute add/subtract 2-bit pattern 'eptn2' */
+#define MXU_EPTN2_AA    0
+#define MXU_EPTN2_AS    1
+#define MXU_EPTN2_SA    2
+#define MXU_EPTN2_SS    3
+
+/* MXU operand getting pattern 'optn2' */
+#define MXU_OPTN2_PTN0  0
+#define MXU_OPTN2_PTN1  1
+#define MXU_OPTN2_PTN2  2
+#define MXU_OPTN2_PTN3  3
+/* alternative naming scheme for 'optn2' */
+#define MXU_OPTN2_WW    0
+#define MXU_OPTN2_LW    1
+#define MXU_OPTN2_HW    2
+#define MXU_OPTN2_XW    3
+
+/* MXU operand getting pattern 'optn3' */
+#define MXU_OPTN3_PTN0  0
+#define MXU_OPTN3_PTN1  1
+#define MXU_OPTN3_PTN2  2
+#define MXU_OPTN3_PTN3  3
+#define MXU_OPTN3_PTN4  4
+#define MXU_OPTN3_PTN5  5
+#define MXU_OPTN3_PTN6  6
+#define MXU_OPTN3_PTN7  7
+
+
+/*
+ * S32I2M XRa, rb - Register move from GRF to XRF
+ */
+static void gen_mxu_s32i2m(DisasContext *ctx)
+{
+    TCGv t0;
+    uint32_t XRa, Rb;
+
+    t0 = tcg_temp_new();
+
+    XRa = extract32(ctx->opcode, 6, 5);
+    Rb = extract32(ctx->opcode, 16, 5);
+
+    gen_load_gpr(t0, Rb);
+    if (XRa <= 15) {
+        gen_store_mxu_gpr(t0, XRa);
+    } else if (XRa == 16) {
+        gen_store_mxu_cr(t0);
+    }
+
+    tcg_temp_free(t0);
+}
+
+/*
+ * S32M2I XRa, rb - Register move from XRF to GRF
+ */
+static void gen_mxu_s32m2i(DisasContext *ctx)
+{
+    TCGv t0;
+    uint32_t XRa, Rb;
+
+    t0 = tcg_temp_new();
+
+    XRa = extract32(ctx->opcode, 6, 5);
+    Rb = extract32(ctx->opcode, 16, 5);
+
+    if (XRa <= 15) {
+        gen_load_mxu_gpr(t0, XRa);
+    } else if (XRa == 16) {
+        gen_load_mxu_cr(t0);
+    }
+
+    gen_store_gpr(t0, Rb);
+
+    tcg_temp_free(t0);
+}
+
+/*
+ * S8LDD XRa, Rb, s8, optn3 - Load a byte from memory to XRF
+ */
+static void gen_mxu_s8ldd(DisasContext *ctx)
+{
+    TCGv t0, t1;
+    uint32_t XRa, Rb, s8, optn3;
+
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+
+    XRa = extract32(ctx->opcode, 6, 4);
+    s8 = extract32(ctx->opcode, 10, 8);
+    optn3 = extract32(ctx->opcode, 18, 3);
+    Rb = extract32(ctx->opcode, 21, 5);
+
+    gen_load_gpr(t0, Rb);
+    tcg_gen_addi_tl(t0, t0, (int8_t)s8);
+
+    switch (optn3) {
+    /* XRa[7:0] = tmp8 */
+    case MXU_OPTN3_PTN0:
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+        gen_load_mxu_gpr(t0, XRa);
+        tcg_gen_deposit_tl(t0, t0, t1, 0, 8);
+        break;
+    /* XRa[15:8] = tmp8 */
+    case MXU_OPTN3_PTN1:
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+        gen_load_mxu_gpr(t0, XRa);
+        tcg_gen_deposit_tl(t0, t0, t1, 8, 8);
+        break;
+    /* XRa[23:16] = tmp8 */
+    case MXU_OPTN3_PTN2:
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+        gen_load_mxu_gpr(t0, XRa);
+        tcg_gen_deposit_tl(t0, t0, t1, 16, 8);
+        break;
+    /* XRa[31:24] = tmp8 */
+    case MXU_OPTN3_PTN3:
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+        gen_load_mxu_gpr(t0, XRa);
+        tcg_gen_deposit_tl(t0, t0, t1, 24, 8);
+        break;
+    /* XRa = {8'b0, tmp8, 8'b0, tmp8} */
+    case MXU_OPTN3_PTN4:
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+        tcg_gen_deposit_tl(t0, t1, t1, 16, 16);
+        break;
+    /* XRa = {tmp8, 8'b0, tmp8, 8'b0} */
+    case MXU_OPTN3_PTN5:
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+        tcg_gen_shli_tl(t1, t1, 8);
+        tcg_gen_deposit_tl(t0, t1, t1, 16, 16);
+        break;
+    /* XRa = {{8{sign of tmp8}}, tmp8, {8{sign of tmp8}}, tmp8} */
+    case MXU_OPTN3_PTN6:
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_SB);
+        tcg_gen_mov_tl(t0, t1);
+        tcg_gen_andi_tl(t0, t0, 0xFF00FFFF);
+        tcg_gen_shli_tl(t1, t1, 16);
+        tcg_gen_or_tl(t0, t0, t1);
+        break;
+    /* XRa = {tmp8, tmp8, tmp8, tmp8} */
+    case MXU_OPTN3_PTN7:
+        tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
+        tcg_gen_deposit_tl(t1, t1, t1, 8, 8);
+        tcg_gen_deposit_tl(t0, t1, t1, 16, 16);
+        break;
+    }
+
+    gen_store_mxu_gpr(t0, XRa);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+}
+
+/*
+ * D16MUL XRa, XRb, XRc, XRd, optn2 - Signed 16 bit pattern multiplication
+ */
+static void gen_mxu_d16mul(DisasContext *ctx)
+{
+    TCGv t0, t1, t2, t3;
+    uint32_t XRa, XRb, XRc, XRd, optn2;
+
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+    t2 = tcg_temp_new();
+    t3 = tcg_temp_new();
+
+    XRa = extract32(ctx->opcode, 6, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRd = extract32(ctx->opcode, 18, 4);
+    optn2 = extract32(ctx->opcode, 22, 2);
+
+    gen_load_mxu_gpr(t1, XRb);
+    tcg_gen_sextract_tl(t0, t1, 0, 16);
+    tcg_gen_sextract_tl(t1, t1, 16, 16);
+    gen_load_mxu_gpr(t3, XRc);
+    tcg_gen_sextract_tl(t2, t3, 0, 16);
+    tcg_gen_sextract_tl(t3, t3, 16, 16);
+
+    switch (optn2) {
+    case MXU_OPTN2_WW: /* XRB.H*XRC.H == lop, XRB.L*XRC.L == rop */
+        tcg_gen_mul_tl(t3, t1, t3);
+        tcg_gen_mul_tl(t2, t0, t2);
+        break;
+    case MXU_OPTN2_LW: /* XRB.L*XRC.H == lop, XRB.L*XRC.L == rop */
+        tcg_gen_mul_tl(t3, t0, t3);
+        tcg_gen_mul_tl(t2, t0, t2);
+        break;
+    case MXU_OPTN2_HW: /* XRB.H*XRC.H == lop, XRB.H*XRC.L == rop */
+        tcg_gen_mul_tl(t3, t1, t3);
+        tcg_gen_mul_tl(t2, t1, t2);
+        break;
+    case MXU_OPTN2_XW: /* XRB.L*XRC.H == lop, XRB.H*XRC.L == rop */
+        tcg_gen_mul_tl(t3, t0, t3);
+        tcg_gen_mul_tl(t2, t1, t2);
+        break;
+    }
+    gen_store_mxu_gpr(t3, XRa);
+    gen_store_mxu_gpr(t2, XRd);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+    tcg_temp_free(t2);
+    tcg_temp_free(t3);
+}
+
+/*
+ * D16MAC XRa, XRb, XRc, XRd, aptn2, optn2 - Signed 16 bit pattern multiply
+ *                                           and accumulate
+ */
+static void gen_mxu_d16mac(DisasContext *ctx)
+{
+    TCGv t0, t1, t2, t3;
+    uint32_t XRa, XRb, XRc, XRd, optn2, aptn2;
+
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+    t2 = tcg_temp_new();
+    t3 = tcg_temp_new();
+
+    XRa = extract32(ctx->opcode, 6, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRd = extract32(ctx->opcode, 18, 4);
+    optn2 = extract32(ctx->opcode, 22, 2);
+    aptn2 = extract32(ctx->opcode, 24, 2);
+
+    gen_load_mxu_gpr(t1, XRb);
+    tcg_gen_sextract_tl(t0, t1, 0, 16);
+    tcg_gen_sextract_tl(t1, t1, 16, 16);
+
+    gen_load_mxu_gpr(t3, XRc);
+    tcg_gen_sextract_tl(t2, t3, 0, 16);
+    tcg_gen_sextract_tl(t3, t3, 16, 16);
+
+    switch (optn2) {
+    case MXU_OPTN2_WW: /* XRB.H*XRC.H == lop, XRB.L*XRC.L == rop */
+        tcg_gen_mul_tl(t3, t1, t3);
+        tcg_gen_mul_tl(t2, t0, t2);
+        break;
+    case MXU_OPTN2_LW: /* XRB.L*XRC.H == lop, XRB.L*XRC.L == rop */
+        tcg_gen_mul_tl(t3, t0, t3);
+        tcg_gen_mul_tl(t2, t0, t2);
+        break;
+    case MXU_OPTN2_HW: /* XRB.H*XRC.H == lop, XRB.H*XRC.L == rop */
+        tcg_gen_mul_tl(t3, t1, t3);
+        tcg_gen_mul_tl(t2, t1, t2);
+        break;
+    case MXU_OPTN2_XW: /* XRB.L*XRC.H == lop, XRB.H*XRC.L == rop */
+        tcg_gen_mul_tl(t3, t0, t3);
+        tcg_gen_mul_tl(t2, t1, t2);
+        break;
+    }
+    gen_load_mxu_gpr(t0, XRa);
+    gen_load_mxu_gpr(t1, XRd);
+
+    switch (aptn2) {
+    case MXU_APTN2_AA:
+        tcg_gen_add_tl(t3, t0, t3);
+        tcg_gen_add_tl(t2, t1, t2);
+        break;
+    case MXU_APTN2_AS:
+        tcg_gen_add_tl(t3, t0, t3);
+        tcg_gen_sub_tl(t2, t1, t2);
+        break;
+    case MXU_APTN2_SA:
+        tcg_gen_sub_tl(t3, t0, t3);
+        tcg_gen_add_tl(t2, t1, t2);
+        break;
+    case MXU_APTN2_SS:
+        tcg_gen_sub_tl(t3, t0, t3);
+        tcg_gen_sub_tl(t2, t1, t2);
+        break;
+    }
+    gen_store_mxu_gpr(t3, XRa);
+    gen_store_mxu_gpr(t2, XRd);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+    tcg_temp_free(t2);
+    tcg_temp_free(t3);
+}
+
+/*
+ * Q8MUL   XRa, XRb, XRc, XRd - Parallel unsigned 8 bit pattern multiply
+ * Q8MULSU XRa, XRb, XRc, XRd - Parallel signed 8 bit pattern multiply
+ */
+static void gen_mxu_q8mul_q8mulsu(DisasContext *ctx)
+{
+    TCGv t0, t1, t2, t3, t4, t5, t6, t7;
+    uint32_t XRa, XRb, XRc, XRd, sel;
+
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+    t2 = tcg_temp_new();
+    t3 = tcg_temp_new();
+    t4 = tcg_temp_new();
+    t5 = tcg_temp_new();
+    t6 = tcg_temp_new();
+    t7 = tcg_temp_new();
+
+    XRa = extract32(ctx->opcode, 6, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRd = extract32(ctx->opcode, 18, 4);
+    sel = extract32(ctx->opcode, 22, 2);
+
+    gen_load_mxu_gpr(t3, XRb);
+    gen_load_mxu_gpr(t7, XRc);
+
+    if (sel == 0x2) {
+        /* Q8MULSU */
+        tcg_gen_ext8s_tl(t0, t3);
+        tcg_gen_shri_tl(t3, t3, 8);
+        tcg_gen_ext8s_tl(t1, t3);
+        tcg_gen_shri_tl(t3, t3, 8);
+        tcg_gen_ext8s_tl(t2, t3);
+        tcg_gen_shri_tl(t3, t3, 8);
+        tcg_gen_ext8s_tl(t3, t3);
+    } else {
+        /* Q8MUL */
+        tcg_gen_ext8u_tl(t0, t3);
+        tcg_gen_shri_tl(t3, t3, 8);
+        tcg_gen_ext8u_tl(t1, t3);
+        tcg_gen_shri_tl(t3, t3, 8);
+        tcg_gen_ext8u_tl(t2, t3);
+        tcg_gen_shri_tl(t3, t3, 8);
+        tcg_gen_ext8u_tl(t3, t3);
+    }
+
+    tcg_gen_ext8u_tl(t4, t7);
+    tcg_gen_shri_tl(t7, t7, 8);
+    tcg_gen_ext8u_tl(t5, t7);
+    tcg_gen_shri_tl(t7, t7, 8);
+    tcg_gen_ext8u_tl(t6, t7);
+    tcg_gen_shri_tl(t7, t7, 8);
+    tcg_gen_ext8u_tl(t7, t7);
+
+    tcg_gen_mul_tl(t0, t0, t4);
+    tcg_gen_mul_tl(t1, t1, t5);
+    tcg_gen_mul_tl(t2, t2, t6);
+    tcg_gen_mul_tl(t3, t3, t7);
+
+    tcg_gen_andi_tl(t0, t0, 0xFFFF);
+    tcg_gen_andi_tl(t1, t1, 0xFFFF);
+    tcg_gen_andi_tl(t2, t2, 0xFFFF);
+    tcg_gen_andi_tl(t3, t3, 0xFFFF);
+
+    tcg_gen_shli_tl(t1, t1, 16);
+    tcg_gen_shli_tl(t3, t3, 16);
+
+    tcg_gen_or_tl(t0, t0, t1);
+    tcg_gen_or_tl(t1, t2, t3);
+
+    gen_store_mxu_gpr(t0, XRd);
+    gen_store_mxu_gpr(t1, XRa);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+    tcg_temp_free(t2);
+    tcg_temp_free(t3);
+    tcg_temp_free(t4);
+    tcg_temp_free(t5);
+    tcg_temp_free(t6);
+    tcg_temp_free(t7);
+}
+
+/*
+ * S32LDD  XRa, Rb, S12 - Load a word from memory to XRF
+ * S32LDDR XRa, Rb, S12 - Load a word from memory to XRF, reversed byte seq.
+ */
+static void gen_mxu_s32ldd_s32lddr(DisasContext *ctx)
+{
+    TCGv t0, t1;
+    uint32_t XRa, Rb, s12, sel;
+
+    t0 = tcg_temp_new();
+    t1 = tcg_temp_new();
+
+    XRa = extract32(ctx->opcode, 6, 4);
+    s12 = extract32(ctx->opcode, 10, 10);
+    sel = extract32(ctx->opcode, 20, 1);
+    Rb = extract32(ctx->opcode, 21, 5);
+
+    gen_load_gpr(t0, Rb);
+
+    tcg_gen_movi_tl(t1, s12);
+    tcg_gen_shli_tl(t1, t1, 2);
+    if (s12 & 0x200) {
+        tcg_gen_ori_tl(t1, t1, 0xFFFFF000);
+    }
+    tcg_gen_add_tl(t1, t0, t1);
+    tcg_gen_qemu_ld_tl(t1, t1, ctx->mem_idx, MO_SL);
+
+    if (sel == 1) {
+        /* S32LDDR */
+        tcg_gen_bswap32_tl(t1, t1);
+    }
+    gen_store_mxu_gpr(t1, XRa);
+
+    tcg_temp_free(t0);
+    tcg_temp_free(t1);
+}
+
+
+/*
+ *                 MXU instruction category: logic
+ *                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ *               S32NOR    S32AND    S32OR    S32XOR
+ */
+
+/*
+ *  S32NOR XRa, XRb, XRc
+ *    Update XRa with the result of logical bitwise 'nor' operation
+ *    applied to the content of XRb and XRc.
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0| opc |  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ */
+static void gen_mxu_S32NOR(DisasContext *ctx)
+{
+    uint32_t pad, XRc, XRb, XRa;
+
+    pad = extract32(ctx->opcode, 21, 5);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRa = extract32(ctx->opcode,  6, 4);
+
+    if (unlikely(pad != 0)) {
+        /* opcode padding incorrect -> do nothing */
+    } else if (unlikely(XRa == 0)) {
+        /* destination is zero register -> do nothing */
+    } else if (unlikely((XRb == 0) && (XRc == 0))) {
+        /* both operands zero registers -> just set destination to all 1s */
+        tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0xFFFFFFFF);
+    } else if (unlikely(XRb == 0)) {
+        /* XRb zero register -> just set destination to the negation of XRc */
+        tcg_gen_not_i32(mxu_gpr[XRa - 1], mxu_gpr[XRc - 1]);
+    } else if (unlikely(XRc == 0)) {
+        /* XRa zero register -> just set destination to the negation of XRb */
+        tcg_gen_not_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else if (unlikely(XRb == XRc)) {
+        /* both operands same -> just set destination to the negation of XRb */
+        tcg_gen_not_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else {
+        /* the most general case */
+        tcg_gen_nor_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1], mxu_gpr[XRc - 1]);
+    }
+}
+
+/*
+ *  S32AND XRa, XRb, XRc
+ *    Update XRa with the result of logical bitwise 'and' operation
+ *    applied to the content of XRb and XRc.
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0| opc |  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ */
+static void gen_mxu_S32AND(DisasContext *ctx)
+{
+    uint32_t pad, XRc, XRb, XRa;
+
+    pad = extract32(ctx->opcode, 21, 5);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRa = extract32(ctx->opcode,  6, 4);
+
+    if (unlikely(pad != 0)) {
+        /* opcode padding incorrect -> do nothing */
+    } else if (unlikely(XRa == 0)) {
+        /* destination is zero register -> do nothing */
+    } else if (unlikely((XRb == 0) || (XRc == 0))) {
+        /* one of operands zero register -> just set destination to all 0s */
+        tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+    } else if (unlikely(XRb == XRc)) {
+        /* both operands same -> just set destination to one of them */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else {
+        /* the most general case */
+        tcg_gen_and_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1], mxu_gpr[XRc - 1]);
+    }
+}
+
+/*
+ *  S32OR XRa, XRb, XRc
+ *    Update XRa with the result of logical bitwise 'or' operation
+ *    applied to the content of XRb and XRc.
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0| opc |  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ */
+static void gen_mxu_S32OR(DisasContext *ctx)
+{
+    uint32_t pad, XRc, XRb, XRa;
+
+    pad = extract32(ctx->opcode, 21, 5);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRa = extract32(ctx->opcode,  6, 4);
+
+    if (unlikely(pad != 0)) {
+        /* opcode padding incorrect -> do nothing */
+    } else if (unlikely(XRa == 0)) {
+        /* destination is zero register -> do nothing */
+    } else if (unlikely((XRb == 0) && (XRc == 0))) {
+        /* both operands zero registers -> just set destination to all 0s */
+        tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+    } else if (unlikely(XRb == 0)) {
+        /* XRb zero register -> just set destination to the content of XRc */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRc - 1]);
+    } else if (unlikely(XRc == 0)) {
+        /* XRc zero register -> just set destination to the content of XRb */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else if (unlikely(XRb == XRc)) {
+        /* both operands same -> just set destination to one of them */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else {
+        /* the most general case */
+        tcg_gen_or_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1], mxu_gpr[XRc - 1]);
+    }
+}
+
+/*
+ *  S32XOR XRa, XRb, XRc
+ *    Update XRa with the result of logical bitwise 'xor' operation
+ *    applied to the content of XRb and XRc.
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0| opc |  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ */
+static void gen_mxu_S32XOR(DisasContext *ctx)
+{
+    uint32_t pad, XRc, XRb, XRa;
+
+    pad = extract32(ctx->opcode, 21, 5);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRa = extract32(ctx->opcode,  6, 4);
+
+    if (unlikely(pad != 0)) {
+        /* opcode padding incorrect -> do nothing */
+    } else if (unlikely(XRa == 0)) {
+        /* destination is zero register -> do nothing */
+    } else if (unlikely((XRb == 0) && (XRc == 0))) {
+        /* both operands zero registers -> just set destination to all 0s */
+        tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+    } else if (unlikely(XRb == 0)) {
+        /* XRb zero register -> just set destination to the content of XRc */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRc - 1]);
+    } else if (unlikely(XRc == 0)) {
+        /* XRc zero register -> just set destination to the content of XRb */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else if (unlikely(XRb == XRc)) {
+        /* both operands same -> just set destination to all 0s */
+        tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+    } else {
+        /* the most general case */
+        tcg_gen_xor_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1], mxu_gpr[XRc - 1]);
+    }
+}
+
+
+/*
+ *                   MXU instruction category max/min
+ *                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ *                     S32MAX     D16MAX     Q8MAX
+ *                     S32MIN     D16MIN     Q8MIN
+ */
+
+/*
+ *  S32MAX XRa, XRb, XRc
+ *    Update XRa with the maximum of signed 32-bit integers contained
+ *    in XRb and XRc.
+ *
+ *  S32MIN XRa, XRb, XRc
+ *    Update XRa with the minimum of signed 32-bit integers contained
+ *    in XRb and XRc.
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0| opc |  XRc  |  XRb  |  XRa  |MXU__POOL00|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ */
+static void gen_mxu_S32MAX_S32MIN(DisasContext *ctx)
+{
+    uint32_t pad, opc, XRc, XRb, XRa;
+
+    pad = extract32(ctx->opcode, 21, 5);
+    opc = extract32(ctx->opcode, 18, 3);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRa = extract32(ctx->opcode,  6, 4);
+
+    if (unlikely(pad != 0)) {
+        /* opcode padding incorrect -> do nothing */
+    } else if (unlikely(XRa == 0)) {
+        /* destination is zero register -> do nothing */
+    } else if (unlikely((XRb == 0) && (XRc == 0))) {
+        /* both operands zero registers -> just set destination to zero */
+        tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+    } else if (unlikely((XRb == 0) || (XRc == 0))) {
+        /* exactly one operand is zero register - find which one is not...*/
+        uint32_t XRx = XRb ? XRb : XRc;
+        /* ...and do max/min operation with one operand 0 */
+        if (opc == OPC_MXU_S32MAX) {
+            tcg_gen_smax_i32(mxu_gpr[XRa - 1], mxu_gpr[XRx - 1], 0);
+        } else {
+            tcg_gen_smin_i32(mxu_gpr[XRa - 1], mxu_gpr[XRx - 1], 0);
+        }
+    } else if (unlikely(XRb == XRc)) {
+        /* both operands same -> just set destination to one of them */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else {
+        /* the most general case */
+        if (opc == OPC_MXU_S32MAX) {
+            tcg_gen_smax_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1],
+                                               mxu_gpr[XRc - 1]);
+        } else {
+            tcg_gen_smin_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1],
+                                               mxu_gpr[XRc - 1]);
+        }
+    }
+}
+
+/*
+ *  D16MAX
+ *    Update XRa with the 16-bit-wise maximums of signed integers
+ *    contained in XRb and XRc.
+ *
+ *  D16MIN
+ *    Update XRa with the 16-bit-wise minimums of signed integers
+ *    contained in XRb and XRc.
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0| opc |  XRc  |  XRb  |  XRa  |MXU__POOL00|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ */
+static void gen_mxu_D16MAX_D16MIN(DisasContext *ctx)
+{
+    uint32_t pad, opc, XRc, XRb, XRa;
+
+    pad = extract32(ctx->opcode, 21, 5);
+    opc = extract32(ctx->opcode, 18, 3);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRa = extract32(ctx->opcode,  6, 4);
+
+    if (unlikely(pad != 0)) {
+        /* opcode padding incorrect -> do nothing */
+    } else if (unlikely(XRc == 0)) {
+        /* destination is zero register -> do nothing */
+    } else if (unlikely((XRb == 0) && (XRa == 0))) {
+        /* both operands zero registers -> just set destination to zero */
+        tcg_gen_movi_i32(mxu_gpr[XRc - 1], 0);
+    } else if (unlikely((XRb == 0) || (XRa == 0))) {
+        /* exactly one operand is zero register - find which one is not...*/
+        uint32_t XRx = XRb ? XRb : XRc;
+        /* ...and do half-word-wise max/min with one operand 0 */
+        TCGv_i32 t0 = tcg_temp_new();
+        TCGv_i32 t1 = tcg_const_i32(0);
+
+        /* the left half-word first */
+        tcg_gen_andi_i32(t0, mxu_gpr[XRx - 1], 0xFFFF0000);
+        if (opc == OPC_MXU_D16MAX) {
+            tcg_gen_smax_i32(mxu_gpr[XRa - 1], t0, t1);
+        } else {
+            tcg_gen_smin_i32(mxu_gpr[XRa - 1], t0, t1);
+        }
+
+        /* the right half-word */
+        tcg_gen_andi_i32(t0, mxu_gpr[XRx - 1], 0x0000FFFF);
+        /* move half-words to the leftmost position */
+        tcg_gen_shli_i32(t0, t0, 16);
+        /* t0 will be max/min of t0 and t1 */
+        if (opc == OPC_MXU_D16MAX) {
+            tcg_gen_smax_i32(t0, t0, t1);
+        } else {
+            tcg_gen_smin_i32(t0, t0, t1);
+        }
+        /* return resulting half-words to its original position */
+        tcg_gen_shri_i32(t0, t0, 16);
+        /* finaly update the destination */
+        tcg_gen_or_i32(mxu_gpr[XRa - 1], mxu_gpr[XRa - 1], t0);
+
+        tcg_temp_free(t1);
+        tcg_temp_free(t0);
+    } else if (unlikely(XRb == XRc)) {
+        /* both operands same -> just set destination to one of them */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else {
+        /* the most general case */
+        TCGv_i32 t0 = tcg_temp_new();
+        TCGv_i32 t1 = tcg_temp_new();
+
+        /* the left half-word first */
+        tcg_gen_andi_i32(t0, mxu_gpr[XRb - 1], 0xFFFF0000);
+        tcg_gen_andi_i32(t1, mxu_gpr[XRc - 1], 0xFFFF0000);
+        if (opc == OPC_MXU_D16MAX) {
+            tcg_gen_smax_i32(mxu_gpr[XRa - 1], t0, t1);
+        } else {
+            tcg_gen_smin_i32(mxu_gpr[XRa - 1], t0, t1);
+        }
+
+        /* the right half-word */
+        tcg_gen_andi_i32(t0, mxu_gpr[XRb - 1], 0x0000FFFF);
+        tcg_gen_andi_i32(t1, mxu_gpr[XRc - 1], 0x0000FFFF);
+        /* move half-words to the leftmost position */
+        tcg_gen_shli_i32(t0, t0, 16);
+        tcg_gen_shli_i32(t1, t1, 16);
+        /* t0 will be max/min of t0 and t1 */
+        if (opc == OPC_MXU_D16MAX) {
+            tcg_gen_smax_i32(t0, t0, t1);
+        } else {
+            tcg_gen_smin_i32(t0, t0, t1);
+        }
+        /* return resulting half-words to its original position */
+        tcg_gen_shri_i32(t0, t0, 16);
+        /* finaly update the destination */
+        tcg_gen_or_i32(mxu_gpr[XRa - 1], mxu_gpr[XRa - 1], t0);
+
+        tcg_temp_free(t1);
+        tcg_temp_free(t0);
+    }
+}
+
+/*
+ *  Q8MAX
+ *    Update XRa with the 8-bit-wise maximums of signed integers
+ *    contained in XRb and XRc.
+ *
+ *  Q8MIN
+ *    Update XRa with the 8-bit-wise minimums of signed integers
+ *    contained in XRb and XRc.
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0| opc |  XRc  |  XRb  |  XRa  |MXU__POOL00|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ */
+static void gen_mxu_Q8MAX_Q8MIN(DisasContext *ctx)
+{
+    uint32_t pad, opc, XRc, XRb, XRa;
+
+    pad = extract32(ctx->opcode, 21, 5);
+    opc = extract32(ctx->opcode, 18, 3);
+    XRc = extract32(ctx->opcode, 14, 4);
+    XRb = extract32(ctx->opcode, 10, 4);
+    XRa = extract32(ctx->opcode,  6, 4);
+
+    if (unlikely(pad != 0)) {
+        /* opcode padding incorrect -> do nothing */
+    } else if (unlikely(XRa == 0)) {
+        /* destination is zero register -> do nothing */
+    } else if (unlikely((XRb == 0) && (XRc == 0))) {
+        /* both operands zero registers -> just set destination to zero */
+        tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+    } else if (unlikely((XRb == 0) || (XRc == 0))) {
+        /* exactly one operand is zero register - make it be the first...*/
+        uint32_t XRx = XRb ? XRb : XRc;
+        /* ...and do byte-wise max/min with one operand 0 */
+        TCGv_i32 t0 = tcg_temp_new();
+        TCGv_i32 t1 = tcg_const_i32(0);
+        int32_t i;
+
+        /* the leftmost byte (byte 3) first */
+        tcg_gen_andi_i32(t0, mxu_gpr[XRx - 1], 0xFF000000);
+        if (opc == OPC_MXU_Q8MAX) {
+            tcg_gen_smax_i32(mxu_gpr[XRa - 1], t0, t1);
+        } else {
+            tcg_gen_smin_i32(mxu_gpr[XRa - 1], t0, t1);
+        }
+
+        /* bytes 2, 1, 0 */
+        for (i = 2; i >= 0; i--) {
+            /* extract the byte */
+            tcg_gen_andi_i32(t0, mxu_gpr[XRx - 1], 0xFF << (8 * i));
+            /* move the byte to the leftmost position */
+            tcg_gen_shli_i32(t0, t0, 8 * (3 - i));
+            /* t0 will be max/min of t0 and t1 */
+            if (opc == OPC_MXU_Q8MAX) {
+                tcg_gen_smax_i32(t0, t0, t1);
+            } else {
+                tcg_gen_smin_i32(t0, t0, t1);
+            }
+            /* return resulting byte to its original position */
+            tcg_gen_shri_i32(t0, t0, 8 * (3 - i));
+            /* finaly update the destination */
+            tcg_gen_or_i32(mxu_gpr[XRa - 1], mxu_gpr[XRa - 1], t0);
+        }
+
+        tcg_temp_free(t1);
+        tcg_temp_free(t0);
+    } else if (unlikely(XRb == XRc)) {
+        /* both operands same -> just set destination to one of them */
+        tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+    } else {
+        /* the most general case */
+        TCGv_i32 t0 = tcg_temp_new();
+        TCGv_i32 t1 = tcg_temp_new();
+        int32_t i;
+
+        /* the leftmost bytes (bytes 3) first */
+        tcg_gen_andi_i32(t0, mxu_gpr[XRb - 1], 0xFF000000);
+        tcg_gen_andi_i32(t1, mxu_gpr[XRc - 1], 0xFF000000);
+        if (opc == OPC_MXU_Q8MAX) {
+            tcg_gen_smax_i32(mxu_gpr[XRa - 1], t0, t1);
+        } else {
+            tcg_gen_smin_i32(mxu_gpr[XRa - 1], t0, t1);
+        }
+
+        /* bytes 2, 1, 0 */
+        for (i = 2; i >= 0; i--) {
+            /* extract corresponding bytes */
+            tcg_gen_andi_i32(t0, mxu_gpr[XRb - 1], 0xFF << (8 * i));
+            tcg_gen_andi_i32(t1, mxu_gpr[XRc - 1], 0xFF << (8 * i));
+            /* move the bytes to the leftmost position */
+            tcg_gen_shli_i32(t0, t0, 8 * (3 - i));
+            tcg_gen_shli_i32(t1, t1, 8 * (3 - i));
+            /* t0 will be max/min of t0 and t1 */
+            if (opc == OPC_MXU_Q8MAX) {
+                tcg_gen_smax_i32(t0, t0, t1);
+            } else {
+                tcg_gen_smin_i32(t0, t0, t1);
+            }
+            /* return resulting byte to its original position */
+            tcg_gen_shri_i32(t0, t0, 8 * (3 - i));
+            /* finaly update the destination */
+            tcg_gen_or_i32(mxu_gpr[XRa - 1], mxu_gpr[XRa - 1], t0);
+        }
+
+        tcg_temp_free(t1);
+        tcg_temp_free(t0);
+    }
+}
+
+
+/*
+ *                 MXU instruction category: align
+ *                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ *                       S32ALN     S32ALNI
+ */
+
+/*
+ *  S32ALNI XRc, XRb, XRa, optn3
+ *    Arrange bytes from XRb and XRc according to one of five sets of
+ *    rules determined by optn3, and place the result in XRa.
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+-----+---+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |optn3|0 0|x x x|  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+-----+---+-----+-------+-------+-------+-----------+
+ *
+ */
+static void gen_mxu_S32ALNI(DisasContext *ctx)
+{
+    uint32_t optn3, pad, XRc, XRb, XRa;
+
+    optn3 = extract32(ctx->opcode,  23, 3);
+    pad   = extract32(ctx->opcode,  21, 2);
+    XRc   = extract32(ctx->opcode, 14, 4);
+    XRb   = extract32(ctx->opcode, 10, 4);
+    XRa   = extract32(ctx->opcode,  6, 4);
+
+    if (unlikely(pad != 0)) {
+        /* opcode padding incorrect -> do nothing */
+    } else if (unlikely(XRa == 0)) {
+        /* destination is zero register -> do nothing */
+    } else if (unlikely((XRb == 0) && (XRc == 0))) {
+        /* both operands zero registers -> just set destination to all 0s */
+        tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+    } else if (unlikely(XRb == 0)) {
+        /* XRb zero register -> just appropriatelly shift XRc into XRa */
+        switch (optn3) {
+        case MXU_OPTN3_PTN0:
+            tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+            break;
+        case MXU_OPTN3_PTN1:
+        case MXU_OPTN3_PTN2:
+        case MXU_OPTN3_PTN3:
+            tcg_gen_shri_i32(mxu_gpr[XRa - 1], mxu_gpr[XRc - 1],
+                             8 * (4 - optn3));
+            break;
+        case MXU_OPTN3_PTN4:
+            tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRc - 1]);
+            break;
+        }
+    } else if (unlikely(XRc == 0)) {
+        /* XRc zero register -> just appropriatelly shift XRb into XRa */
+        switch (optn3) {
+        case MXU_OPTN3_PTN0:
+            tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+            break;
+        case MXU_OPTN3_PTN1:
+        case MXU_OPTN3_PTN2:
+        case MXU_OPTN3_PTN3:
+            tcg_gen_shri_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1], 8 * optn3);
+            break;
+        case MXU_OPTN3_PTN4:
+            tcg_gen_movi_i32(mxu_gpr[XRa - 1], 0);
+            break;
+        }
+    } else if (unlikely(XRb == XRc)) {
+        /* both operands same -> just rotation or moving from any of them */
+        switch (optn3) {
+        case MXU_OPTN3_PTN0:
+        case MXU_OPTN3_PTN4:
+            tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+            break;
+        case MXU_OPTN3_PTN1:
+        case MXU_OPTN3_PTN2:
+        case MXU_OPTN3_PTN3:
+            tcg_gen_rotli_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1], 8 * optn3);
+            break;
+        }
+    } else {
+        /* the most general case */
+        switch (optn3) {
+        case MXU_OPTN3_PTN0:
+            {
+                /*                                         */
+                /*         XRb                XRc          */
+                /*  +---------------+                      */
+                /*  | A   B   C   D |    E   F   G   H     */
+                /*  +-------+-------+                      */
+                /*          |                              */
+                /*         XRa                             */
+                /*                                         */
+
+                tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRb - 1]);
+            }
+            break;
+        case MXU_OPTN3_PTN1:
+            {
+                /*                                         */
+                /*         XRb                 XRc         */
+                /*      +-------------------+              */
+                /*    A | B   C   D       E | F   G   H    */
+                /*      +---------+---------+              */
+                /*                |                        */
+                /*               XRa                       */
+                /*                                         */
+
+                TCGv_i32 t0 = tcg_temp_new();
+                TCGv_i32 t1 = tcg_temp_new();
+
+                tcg_gen_andi_i32(t0, mxu_gpr[XRb - 1], 0x00FFFFFF);
+                tcg_gen_shli_i32(t0, t0, 8);
+
+                tcg_gen_andi_i32(t1, mxu_gpr[XRc - 1], 0xFF000000);
+                tcg_gen_shri_i32(t1, t1, 24);
+
+                tcg_gen_or_i32(mxu_gpr[XRa - 1], t0, t1);
+
+                tcg_temp_free(t1);
+                tcg_temp_free(t0);
+            }
+            break;
+        case MXU_OPTN3_PTN2:
+            {
+                /*                                         */
+                /*         XRb                 XRc         */
+                /*          +-------------------+          */
+                /*    A   B | C   D       E   F | G   H    */
+                /*          +---------+---------+          */
+                /*                    |                    */
+                /*                   XRa                   */
+                /*                                         */
+
+                TCGv_i32 t0 = tcg_temp_new();
+                TCGv_i32 t1 = tcg_temp_new();
+
+                tcg_gen_andi_i32(t0, mxu_gpr[XRb - 1], 0x0000FFFF);
+                tcg_gen_shli_i32(t0, t0, 16);
+
+                tcg_gen_andi_i32(t1, mxu_gpr[XRc - 1], 0xFFFF0000);
+                tcg_gen_shri_i32(t1, t1, 16);
+
+                tcg_gen_or_i32(mxu_gpr[XRa - 1], t0, t1);
+
+                tcg_temp_free(t1);
+                tcg_temp_free(t0);
+            }
+            break;
+        case MXU_OPTN3_PTN3:
+            {
+                /*                                         */
+                /*         XRb                 XRc         */
+                /*              +-------------------+      */
+                /*    A   B   C | D       E   F   G | H    */
+                /*              +---------+---------+      */
+                /*                        |                */
+                /*                       XRa               */
+                /*                                         */
+
+                TCGv_i32 t0 = tcg_temp_new();
+                TCGv_i32 t1 = tcg_temp_new();
+
+                tcg_gen_andi_i32(t0, mxu_gpr[XRb - 1], 0x000000FF);
+                tcg_gen_shli_i32(t0, t0, 24);
+
+                tcg_gen_andi_i32(t1, mxu_gpr[XRc - 1], 0xFFFFFF00);
+                tcg_gen_shri_i32(t1, t1, 8);
+
+                tcg_gen_or_i32(mxu_gpr[XRa - 1], t0, t1);
+
+                tcg_temp_free(t1);
+                tcg_temp_free(t0);
+            }
+            break;
+        case MXU_OPTN3_PTN4:
+            {
+                /*                                         */
+                /*         XRb                 XRc         */
+                /*                     +---------------+   */
+                /*    A   B   C   D    | E   F   G   H |   */
+                /*                     +-------+-------+   */
+                /*                             |           */
+                /*                            XRa          */
+                /*                                         */
+
+                tcg_gen_mov_i32(mxu_gpr[XRa - 1], mxu_gpr[XRc - 1]);
+            }
+            break;
+        }
+    }
+}
+
+
+/*
+ * Decoding engine for MXU
+ * =======================
+ */
+
+/*
+ *
+ * Decode MXU pool00
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0|x x x|  XRc  |  XRb  |  XRa  |MXU__POOL00|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool00(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 18, 3);
+
+    switch (opcode) {
+    case OPC_MXU_S32MAX:
+    case OPC_MXU_S32MIN:
+        gen_mxu_S32MAX_S32MIN(ctx);
+        break;
+    case OPC_MXU_D16MAX:
+    case OPC_MXU_D16MIN:
+        gen_mxu_D16MAX_D16MIN(ctx);
+        break;
+    case OPC_MXU_Q8MAX:
+    case OPC_MXU_Q8MIN:
+        gen_mxu_Q8MAX_Q8MIN(ctx);
+        break;
+    case OPC_MXU_Q8SLT:
+        /* TODO: Implement emulation of Q8SLT instruction. */
+        MIPS_INVAL("OPC_MXU_Q8SLT");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q8SLTU:
+        /* TODO: Implement emulation of Q8SLTU instruction. */
+        MIPS_INVAL("OPC_MXU_Q8SLTU");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool01
+ *
+ *  S32SLT, D16SLT, D16AVG, D16AVGR, Q8AVG, Q8AVGR:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0|x x x|  XRc  |  XRb  |  XRa  |MXU__POOL01|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *
+ *  Q8ADD:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+-----+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |en2|0 0 0|x x x|  XRc  |  XRb  |  XRa  |MXU__POOL01|
+ *  +-----------+---+-----+-----+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool01(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 18, 3);
+
+    switch (opcode) {
+    case OPC_MXU_S32SLT:
+        /* TODO: Implement emulation of S32SLT instruction. */
+        MIPS_INVAL("OPC_MXU_S32SLT");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D16SLT:
+        /* TODO: Implement emulation of D16SLT instruction. */
+        MIPS_INVAL("OPC_MXU_D16SLT");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D16AVG:
+        /* TODO: Implement emulation of D16AVG instruction. */
+        MIPS_INVAL("OPC_MXU_D16AVG");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D16AVGR:
+        /* TODO: Implement emulation of D16AVGR instruction. */
+        MIPS_INVAL("OPC_MXU_D16AVGR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q8AVG:
+        /* TODO: Implement emulation of Q8AVG instruction. */
+        MIPS_INVAL("OPC_MXU_Q8AVG");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q8AVGR:
+        /* TODO: Implement emulation of Q8AVGR instruction. */
+        MIPS_INVAL("OPC_MXU_Q8AVGR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q8ADD:
+        /* TODO: Implement emulation of Q8ADD instruction. */
+        MIPS_INVAL("OPC_MXU_Q8ADD");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool02
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0|x x x|  XRc  |  XRb  |  XRa  |MXU__POOL02|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool02(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 18, 3);
+
+    switch (opcode) {
+    case OPC_MXU_S32CPS:
+        /* TODO: Implement emulation of S32CPS instruction. */
+        MIPS_INVAL("OPC_MXU_S32CPS");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D16CPS:
+        /* TODO: Implement emulation of D16CPS instruction. */
+        MIPS_INVAL("OPC_MXU_D16CPS");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q8ABD:
+        /* TODO: Implement emulation of Q8ABD instruction. */
+        MIPS_INVAL("OPC_MXU_Q8ABD");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q16SAT:
+        /* TODO: Implement emulation of Q16SAT instruction. */
+        MIPS_INVAL("OPC_MXU_Q16SAT");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool03
+ *
+ *  D16MULF:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |x x|on2|0 0 0 0|  XRc  |  XRb  |  XRa  |MXU__POOL03|
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *
+ *  D16MULE:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |x x|on2|   Xd  |  XRc  |  XRb  |  XRa  |MXU__POOL03|
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool03(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 24, 2);
+
+    switch (opcode) {
+    case OPC_MXU_D16MULF:
+        /* TODO: Implement emulation of D16MULF instruction. */
+        MIPS_INVAL("OPC_MXU_D16MULF");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D16MULE:
+        /* TODO: Implement emulation of D16MULE instruction. */
+        MIPS_INVAL("OPC_MXU_D16MULE");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool04
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-+-------------------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |x|        s12        |  XRa  |MXU__POOL04|
+ *  +-----------+---------+-+-------------------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool04(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 20, 1);
+
+    switch (opcode) {
+    case OPC_MXU_S32LDD:
+    case OPC_MXU_S32LDDR:
+        gen_mxu_s32ldd_s32lddr(ctx);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool05
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-+-------------------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |x|        s12        |  XRa  |MXU__POOL05|
+ *  +-----------+---------+-+-------------------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool05(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 20, 1);
+
+    switch (opcode) {
+    case OPC_MXU_S32STD:
+        /* TODO: Implement emulation of S32STD instruction. */
+        MIPS_INVAL("OPC_MXU_S32STD");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32STDR:
+        /* TODO: Implement emulation of S32STDR instruction. */
+        MIPS_INVAL("OPC_MXU_S32STDR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool06
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |    rc   |st2|x x x x|  XRa  |MXU__POOL06|
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool06(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 10, 4);
+
+    switch (opcode) {
+    case OPC_MXU_S32LDDV:
+        /* TODO: Implement emulation of S32LDDV instruction. */
+        MIPS_INVAL("OPC_MXU_S32LDDV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32LDDVR:
+        /* TODO: Implement emulation of S32LDDVR instruction. */
+        MIPS_INVAL("OPC_MXU_S32LDDVR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool07
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |    rc   |st2|x x x x|  XRa  |MXU__POOL07|
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool07(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 10, 4);
+
+    switch (opcode) {
+    case OPC_MXU_S32STDV:
+        /* TODO: Implement emulation of S32TDV instruction. */
+        MIPS_INVAL("OPC_MXU_S32TDV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32STDVR:
+        /* TODO: Implement emulation of S32TDVR instruction. */
+        MIPS_INVAL("OPC_MXU_S32TDVR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool08
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-+-------------------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |x|        s12        |  XRa  |MXU__POOL08|
+ *  +-----------+---------+-+-------------------+-------+-----------+
+ *
+*/
+static void decode_opc_mxu__pool08(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 20, 1);
+
+    switch (opcode) {
+    case OPC_MXU_S32LDI:
+        /* TODO: Implement emulation of S32LDI instruction. */
+        MIPS_INVAL("OPC_MXU_S32LDI");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32LDIR:
+        /* TODO: Implement emulation of S32LDIR instruction. */
+        MIPS_INVAL("OPC_MXU_S32LDIR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool09
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-+-------------------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |x|        s12        |  XRa  |MXU__POOL09|
+ *  +-----------+---------+-+-------------------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool09(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 5, 0);
+
+    switch (opcode) {
+    case OPC_MXU_S32SDI:
+        /* TODO: Implement emulation of S32SDI instruction. */
+        MIPS_INVAL("OPC_MXU_S32SDI");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32SDIR:
+        /* TODO: Implement emulation of S32SDIR instruction. */
+        MIPS_INVAL("OPC_MXU_S32SDIR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool10
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |    rc   |st2|x x x x|  XRa  |MXU__POOL10|
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool10(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 5, 0);
+
+    switch (opcode) {
+    case OPC_MXU_S32LDIV:
+        /* TODO: Implement emulation of S32LDIV instruction. */
+        MIPS_INVAL("OPC_MXU_S32LDIV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32LDIVR:
+        /* TODO: Implement emulation of S32LDIVR instruction. */
+        MIPS_INVAL("OPC_MXU_S32LDIVR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool11
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |    rc   |st2|x x x x|  XRa  |MXU__POOL11|
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool11(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 10, 4);
+
+    switch (opcode) {
+    case OPC_MXU_S32SDIV:
+        /* TODO: Implement emulation of S32SDIV instruction. */
+        MIPS_INVAL("OPC_MXU_S32SDIV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32SDIVR:
+        /* TODO: Implement emulation of S32SDIVR instruction. */
+        MIPS_INVAL("OPC_MXU_S32SDIVR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool12
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |an2|x x|   Xd  |  XRc  |  XRb  |  XRa  |MXU__POOL12|
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool12(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 22, 2);
+
+    switch (opcode) {
+    case OPC_MXU_D32ACC:
+        /* TODO: Implement emulation of D32ACC instruction. */
+        MIPS_INVAL("OPC_MXU_D32ACC");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D32ACCM:
+        /* TODO: Implement emulation of D32ACCM instruction. */
+        MIPS_INVAL("OPC_MXU_D32ACCM");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D32ASUM:
+        /* TODO: Implement emulation of D32ASUM instruction. */
+        MIPS_INVAL("OPC_MXU_D32ASUM");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool13
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |en2|x x|0 0 0 0|  XRc  |  XRb  |  XRa  |MXU__POOL13|
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool13(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 22, 2);
+
+    switch (opcode) {
+    case OPC_MXU_Q16ACC:
+        /* TODO: Implement emulation of Q16ACC instruction. */
+        MIPS_INVAL("OPC_MXU_Q16ACC");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q16ACCM:
+        /* TODO: Implement emulation of Q16ACCM instruction. */
+        MIPS_INVAL("OPC_MXU_Q16ACCM");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q16ASUM:
+        /* TODO: Implement emulation of Q16ASUM instruction. */
+        MIPS_INVAL("OPC_MXU_Q16ASUM");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool14
+ *
+ *  Q8ADDE, Q8ACCE:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0|x x|  XRd  |  XRc  |  XRb  |  XRa  |MXU__POOL14|
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *
+ *  D8SUM, D8SUMC:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |en2|x x|0 0 0 0|  XRc  |  XRb  |  XRa  |MXU__POOL14|
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool14(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 22, 2);
+
+    switch (opcode) {
+    case OPC_MXU_Q8ADDE:
+        /* TODO: Implement emulation of Q8ADDE instruction. */
+        MIPS_INVAL("OPC_MXU_Q8ADDE");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D8SUM:
+        /* TODO: Implement emulation of D8SUM instruction. */
+        MIPS_INVAL("OPC_MXU_D8SUM");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D8SUMC:
+        /* TODO: Implement emulation of D8SUMC instruction. */
+        MIPS_INVAL("OPC_MXU_D8SUMC");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool15
+ *
+ *  S32MUL, S32MULU, S32EXTRV:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *  |  SPECIAL2 |    rs   |    rt   |x x|  XRd  |  XRa  |MXU__POOL15|
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *
+ *  S32EXTR:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |   sft5  |x x|  XRd  |  XRa  |MXU__POOL15|
+ *  +-----------+---------+---------+---+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool15(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 14, 2);
+
+    switch (opcode) {
+    case OPC_MXU_S32MUL:
+        /* TODO: Implement emulation of S32MUL instruction. */
+        MIPS_INVAL("OPC_MXU_S32MUL");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32MULU:
+        /* TODO: Implement emulation of S32MULU instruction. */
+        MIPS_INVAL("OPC_MXU_S32MULU");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32EXTR:
+        /* TODO: Implement emulation of S32EXTR instruction. */
+        MIPS_INVAL("OPC_MXU_S32EXTR");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32EXTRV:
+        /* TODO: Implement emulation of S32EXTRV instruction. */
+        MIPS_INVAL("OPC_MXU_S32EXTRV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool16
+ *
+ *  D32SARW:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |x x x|  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *
+ *  S32ALN:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |    rs   |x x x|  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *
+ *  S32ALNI:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+-----+---+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |  s3 |0 0|x x x|  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+-----+---+-----+-------+-------+-------+-----------+
+ *
+ *  S32LUI:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+-----+---+-----+-------+---------------+-----------+
+ *  |  SPECIAL2 |optn3|0 0|x x x|  XRc  |       s8      |MXU__POOL16|
+ *  +-----------+-----+---+-----+-------+---------------+-----------+
+ *
+ *  S32NOR, S32AND, S32OR, S32XOR:
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0|x x x|  XRc  |  XRb  |  XRa  |MXU__POOL16|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool16(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 18, 3);
+
+    switch (opcode) {
+    case OPC_MXU_D32SARW:
+        /* TODO: Implement emulation of D32SARW instruction. */
+        MIPS_INVAL("OPC_MXU_D32SARW");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32ALN:
+        /* TODO: Implement emulation of S32ALN instruction. */
+        MIPS_INVAL("OPC_MXU_S32ALN");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32ALNI:
+        gen_mxu_S32ALNI(ctx);
+        break;
+    case OPC_MXU_S32LUI:
+        /* TODO: Implement emulation of S32LUI instruction. */
+        MIPS_INVAL("OPC_MXU_S32LUI");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32NOR:
+        gen_mxu_S32NOR(ctx);
+        break;
+    case OPC_MXU_S32AND:
+        gen_mxu_S32AND(ctx);
+        break;
+    case OPC_MXU_S32OR:
+        gen_mxu_S32OR(ctx);
+        break;
+    case OPC_MXU_S32XOR:
+        gen_mxu_S32XOR(ctx);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool17
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+---------+---+---------+-----+-----------+
+ *  |  SPECIAL2 |    rs   |    rt   |0 0|    rd   |x x x|MXU__POOL15|
+ *  +-----------+---------+---------+---+---------+-----+-----------+
+ *
+ */
+static void decode_opc_mxu__pool17(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 6, 2);
+
+    switch (opcode) {
+    case OPC_MXU_LXW:
+        /* TODO: Implement emulation of LXW instruction. */
+        MIPS_INVAL("OPC_MXU_LXW");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_LXH:
+        /* TODO: Implement emulation of LXH instruction. */
+        MIPS_INVAL("OPC_MXU_LXH");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_LXHU:
+        /* TODO: Implement emulation of LXHU instruction. */
+        MIPS_INVAL("OPC_MXU_LXHU");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_LXB:
+        /* TODO: Implement emulation of LXB instruction. */
+        MIPS_INVAL("OPC_MXU_LXB");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_LXBU:
+        /* TODO: Implement emulation of LXBU instruction. */
+        MIPS_INVAL("OPC_MXU_LXBU");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+/*
+ *
+ * Decode MXU pool18
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |    rb   |x x x|  XRd  |  XRa  |0 0 0 0|MXU__POOL18|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool18(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 18, 3);
+
+    switch (opcode) {
+    case OPC_MXU_D32SLLV:
+        /* TODO: Implement emulation of D32SLLV instruction. */
+        MIPS_INVAL("OPC_MXU_D32SLLV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D32SLRV:
+        /* TODO: Implement emulation of D32SLRV instruction. */
+        MIPS_INVAL("OPC_MXU_D32SLRV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D32SARV:
+        /* TODO: Implement emulation of D32SARV instruction. */
+        MIPS_INVAL("OPC_MXU_D32SARV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q16SLLV:
+        /* TODO: Implement emulation of Q16SLLV instruction. */
+        MIPS_INVAL("OPC_MXU_Q16SLLV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q16SLRV:
+        /* TODO: Implement emulation of Q16SLRV instruction. */
+        MIPS_INVAL("OPC_MXU_Q16SLRV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q16SARV:
+        /* TODO: Implement emulation of Q16SARV instruction. */
+        MIPS_INVAL("OPC_MXU_Q16SARV");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool19
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0|x x|  XRd  |  XRc  |  XRb  |  XRa  |MXU__POOL19|
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool19(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 22, 2);
+
+    switch (opcode) {
+    case OPC_MXU_Q8MUL:
+    case OPC_MXU_Q8MULSU:
+        gen_mxu_q8mul_q8mulsu(ctx);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool20
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |0 0 0 0 0|x x x|  XRc  |  XRb  |  XRa  |MXU__POOL20|
+ *  +-----------+---------+-----+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool20(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 18, 3);
+
+    switch (opcode) {
+    case OPC_MXU_Q8MOVZ:
+        /* TODO: Implement emulation of Q8MOVZ instruction. */
+        MIPS_INVAL("OPC_MXU_Q8MOVZ");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q8MOVN:
+        /* TODO: Implement emulation of Q8MOVN instruction. */
+        MIPS_INVAL("OPC_MXU_Q8MOVN");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D16MOVZ:
+        /* TODO: Implement emulation of D16MOVZ instruction. */
+        MIPS_INVAL("OPC_MXU_D16MOVZ");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_D16MOVN:
+        /* TODO: Implement emulation of D16MOVN instruction. */
+        MIPS_INVAL("OPC_MXU_D16MOVN");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32MOVZ:
+        /* TODO: Implement emulation of S32MOVZ instruction. */
+        MIPS_INVAL("OPC_MXU_S32MOVZ");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_S32MOVN:
+        /* TODO: Implement emulation of S32MOVN instruction. */
+        MIPS_INVAL("OPC_MXU_S32MOVN");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+/*
+ *
+ * Decode MXU pool21
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *  |  SPECIAL2 |an2|x x|  XRd  |  XRc  |  XRb  |  XRa  |MXU__POOL21|
+ *  +-----------+---+---+-------+-------+-------+-------+-----------+
+ *
+ */
+static void decode_opc_mxu__pool21(CPUMIPSState *env, DisasContext *ctx)
+{
+    uint32_t opcode = extract32(ctx->opcode, 22, 2);
+
+    switch (opcode) {
+    case OPC_MXU_Q8MAC:
+        /* TODO: Implement emulation of Q8MAC instruction. */
+        MIPS_INVAL("OPC_MXU_Q8MAC");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    case OPC_MXU_Q8MACSU:
+        /* TODO: Implement emulation of Q8MACSU instruction. */
+        MIPS_INVAL("OPC_MXU_Q8MACSU");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    default:
+        MIPS_INVAL("decode_opc_mxu");
+        generate_exception_end(ctx, EXCP_RI);
+        break;
+    }
+}
+
+
+/*
+ * Main MXU decoding function
+ *
+ *   1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+ *  +-----------+---------------------------------------+-----------+
+ *  |  SPECIAL2 |                                       |x x x x x x|
+ *  +-----------+---------------------------------------+-----------+
+ *
+ */
+static void decode_opc_mxu(CPUMIPSState *env, DisasContext *ctx)
+{
+    /*
+     * TODO: Investigate necessity of including handling of
+     * CLZ, CLO, SDBB in this function, as they belong to
+     * SPECIAL2 opcode space for regular pre-R6 MIPS ISAs.
+     */
+    uint32_t opcode = extract32(ctx->opcode, 0, 6);
+
+    if (opcode == OPC__MXU_MUL) {
+        uint32_t  rs, rt, rd, op1;
+
+        rs = extract32(ctx->opcode, 21, 5);
+        rt = extract32(ctx->opcode, 16, 5);
+        rd = extract32(ctx->opcode, 11, 5);
+        op1 = MASK_SPECIAL2(ctx->opcode);
+
+        gen_arith(ctx, op1, rd, rs, rt);
+
+        return;
+    }
+
+    if (opcode == OPC_MXU_S32M2I) {
+        gen_mxu_s32m2i(ctx);
+        return;
+    }
+
+    if (opcode == OPC_MXU_S32I2M) {
+        gen_mxu_s32i2m(ctx);
+        return;
+    }
+
+    {
+        TCGv t_mxu_cr = tcg_temp_new();
+        TCGLabel *l_exit = gen_new_label();
+
+        gen_load_mxu_cr(t_mxu_cr);
+        tcg_gen_andi_tl(t_mxu_cr, t_mxu_cr, MXU_CR_MXU_EN);
+        tcg_gen_brcondi_tl(TCG_COND_NE, t_mxu_cr, MXU_CR_MXU_EN, l_exit);
+
+        switch (opcode) {
+        case OPC_MXU_S32MADD:
+            /* TODO: Implement emulation of S32MADD instruction. */
+            MIPS_INVAL("OPC_MXU_S32MADD");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S32MADDU:
+            /* TODO: Implement emulation of S32MADDU instruction. */
+            MIPS_INVAL("OPC_MXU_S32MADDU");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU__POOL00:
+            decode_opc_mxu__pool00(env, ctx);
+            break;
+        case OPC_MXU_S32MSUB:
+            /* TODO: Implement emulation of S32MSUB instruction. */
+            MIPS_INVAL("OPC_MXU_S32MSUB");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S32MSUBU:
+            /* TODO: Implement emulation of S32MSUBU instruction. */
+            MIPS_INVAL("OPC_MXU_S32MSUBU");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU__POOL01:
+            decode_opc_mxu__pool01(env, ctx);
+            break;
+        case OPC_MXU__POOL02:
+            decode_opc_mxu__pool02(env, ctx);
+            break;
+        case OPC_MXU_D16MUL:
+            gen_mxu_d16mul(ctx);
+            break;
+        case OPC_MXU__POOL03:
+            decode_opc_mxu__pool03(env, ctx);
+            break;
+        case OPC_MXU_D16MAC:
+            gen_mxu_d16mac(ctx);
+            break;
+        case OPC_MXU_D16MACF:
+            /* TODO: Implement emulation of D16MACF instruction. */
+            MIPS_INVAL("OPC_MXU_D16MACF");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_D16MADL:
+            /* TODO: Implement emulation of D16MADL instruction. */
+            MIPS_INVAL("OPC_MXU_D16MADL");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S16MAD:
+            /* TODO: Implement emulation of S16MAD instruction. */
+            MIPS_INVAL("OPC_MXU_S16MAD");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_Q16ADD:
+            /* TODO: Implement emulation of Q16ADD instruction. */
+            MIPS_INVAL("OPC_MXU_Q16ADD");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_D16MACE:
+            /* TODO: Implement emulation of D16MACE instruction. */
+            MIPS_INVAL("OPC_MXU_D16MACE");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU__POOL04:
+            decode_opc_mxu__pool04(env, ctx);
+            break;
+        case OPC_MXU__POOL05:
+            decode_opc_mxu__pool05(env, ctx);
+            break;
+        case OPC_MXU__POOL06:
+            decode_opc_mxu__pool06(env, ctx);
+            break;
+        case OPC_MXU__POOL07:
+            decode_opc_mxu__pool07(env, ctx);
+            break;
+        case OPC_MXU__POOL08:
+            decode_opc_mxu__pool08(env, ctx);
+            break;
+        case OPC_MXU__POOL09:
+            decode_opc_mxu__pool09(env, ctx);
+            break;
+        case OPC_MXU__POOL10:
+            decode_opc_mxu__pool10(env, ctx);
+            break;
+        case OPC_MXU__POOL11:
+            decode_opc_mxu__pool11(env, ctx);
+            break;
+        case OPC_MXU_D32ADD:
+            /* TODO: Implement emulation of D32ADD instruction. */
+            MIPS_INVAL("OPC_MXU_D32ADD");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU__POOL12:
+            decode_opc_mxu__pool12(env, ctx);
+            break;
+        case OPC_MXU__POOL13:
+            decode_opc_mxu__pool13(env, ctx);
+            break;
+        case OPC_MXU__POOL14:
+            decode_opc_mxu__pool14(env, ctx);
+            break;
+        case OPC_MXU_Q8ACCE:
+            /* TODO: Implement emulation of Q8ACCE instruction. */
+            MIPS_INVAL("OPC_MXU_Q8ACCE");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S8LDD:
+            gen_mxu_s8ldd(ctx);
+            break;
+        case OPC_MXU_S8STD:
+            /* TODO: Implement emulation of S8STD instruction. */
+            MIPS_INVAL("OPC_MXU_S8STD");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S8LDI:
+            /* TODO: Implement emulation of S8LDI instruction. */
+            MIPS_INVAL("OPC_MXU_S8LDI");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S8SDI:
+            /* TODO: Implement emulation of S8SDI instruction. */
+            MIPS_INVAL("OPC_MXU_S8SDI");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU__POOL15:
+            decode_opc_mxu__pool15(env, ctx);
+            break;
+        case OPC_MXU__POOL16:
+            decode_opc_mxu__pool16(env, ctx);
+            break;
+        case OPC_MXU__POOL17:
+            decode_opc_mxu__pool17(env, ctx);
+            break;
+        case OPC_MXU_S16LDD:
+            /* TODO: Implement emulation of S16LDD instruction. */
+            MIPS_INVAL("OPC_MXU_S16LDD");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S16STD:
+            /* TODO: Implement emulation of S16STD instruction. */
+            MIPS_INVAL("OPC_MXU_S16STD");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S16LDI:
+            /* TODO: Implement emulation of S16LDI instruction. */
+            MIPS_INVAL("OPC_MXU_S16LDI");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S16SDI:
+            /* TODO: Implement emulation of S16SDI instruction. */
+            MIPS_INVAL("OPC_MXU_S16SDI");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_D32SLL:
+            /* TODO: Implement emulation of D32SLL instruction. */
+            MIPS_INVAL("OPC_MXU_D32SLL");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_D32SLR:
+            /* TODO: Implement emulation of D32SLR instruction. */
+            MIPS_INVAL("OPC_MXU_D32SLR");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_D32SARL:
+            /* TODO: Implement emulation of D32SARL instruction. */
+            MIPS_INVAL("OPC_MXU_D32SARL");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_D32SAR:
+            /* TODO: Implement emulation of D32SAR instruction. */
+            MIPS_INVAL("OPC_MXU_D32SAR");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_Q16SLL:
+            /* TODO: Implement emulation of Q16SLL instruction. */
+            MIPS_INVAL("OPC_MXU_Q16SLL");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_Q16SLR:
+            /* TODO: Implement emulation of Q16SLR instruction. */
+            MIPS_INVAL("OPC_MXU_Q16SLR");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU__POOL18:
+            decode_opc_mxu__pool18(env, ctx);
+            break;
+        case OPC_MXU_Q16SAR:
+            /* TODO: Implement emulation of Q16SAR instruction. */
+            MIPS_INVAL("OPC_MXU_Q16SAR");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU__POOL19:
+            decode_opc_mxu__pool19(env, ctx);
+            break;
+        case OPC_MXU__POOL20:
+            decode_opc_mxu__pool20(env, ctx);
+            break;
+        case OPC_MXU__POOL21:
+            decode_opc_mxu__pool21(env, ctx);
+            break;
+        case OPC_MXU_Q16SCOP:
+            /* TODO: Implement emulation of Q16SCOP instruction. */
+            MIPS_INVAL("OPC_MXU_Q16SCOP");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_Q8MADL:
+            /* TODO: Implement emulation of Q8MADL instruction. */
+            MIPS_INVAL("OPC_MXU_Q8MADL");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_S32SFL:
+            /* TODO: Implement emulation of S32SFL instruction. */
+            MIPS_INVAL("OPC_MXU_S32SFL");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        case OPC_MXU_Q8SAD:
+            /* TODO: Implement emulation of Q8SAD instruction. */
+            MIPS_INVAL("OPC_MXU_Q8SAD");
+            generate_exception_end(ctx, EXCP_RI);
+            break;
+        default:
+            MIPS_INVAL("decode_opc_mxu");
+            generate_exception_end(ctx, EXCP_RI);
+        }
+
+        gen_set_label(l_exit);
+        tcg_temp_free(t_mxu_cr);
+    }
+}
+
+#endif /* !defined(TARGET_MIPS64) */
+
 
 static void decode_opc_special2_legacy(CPUMIPSState *env, DisasContext *ctx)
 {
@@ -24681,37 +27290,37 @@ static void decode_opc_special3_legacy(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_tx79_mmi0(CPUMIPSState *env, DisasContext *ctx)
+static void decode_mmi0(CPUMIPSState *env, DisasContext *ctx)
 {
-    uint32_t opc = MASK_TX79_MMI0(ctx->opcode);
+    uint32_t opc = MASK_MMI0(ctx->opcode);
 
     switch (opc) {
-    case TX79_MMI0_PADDW:     /* TODO: TX79_MMI0_PADDW */
-    case TX79_MMI0_PSUBW:     /* TODO: TX79_MMI0_PSUBW */
-    case TX79_MMI0_PCGTW:     /* TODO: TX79_MMI0_PCGTW */
-    case TX79_MMI0_PMAXW:     /* TODO: TX79_MMI0_PMAXW */
-    case TX79_MMI0_PADDH:     /* TODO: TX79_MMI0_PADDH */
-    case TX79_MMI0_PSUBH:     /* TODO: TX79_MMI0_PSUBH */
-    case TX79_MMI0_PCGTH:     /* TODO: TX79_MMI0_PCGTH */
-    case TX79_MMI0_PMAXH:     /* TODO: TX79_MMI0_PMAXH */
-    case TX79_MMI0_PADDB:     /* TODO: TX79_MMI0_PADDB */
-    case TX79_MMI0_PSUBB:     /* TODO: TX79_MMI0_PSUBB */
-    case TX79_MMI0_PCGTB:     /* TODO: TX79_MMI0_PCGTB */
-    case TX79_MMI0_PADDSW:    /* TODO: TX79_MMI0_PADDSW */
-    case TX79_MMI0_PSUBSW:    /* TODO: TX79_MMI0_PSUBSW */
-    case TX79_MMI0_PEXTLW:    /* TODO: TX79_MMI0_PEXTLW */
-    case TX79_MMI0_PPACW:     /* TODO: TX79_MMI0_PPACW */
-    case TX79_MMI0_PADDSH:    /* TODO: TX79_MMI0_PADDSH */
-    case TX79_MMI0_PSUBSH:    /* TODO: TX79_MMI0_PSUBSH */
-    case TX79_MMI0_PEXTLH:    /* TODO: TX79_MMI0_PEXTLH */
-    case TX79_MMI0_PPACH:     /* TODO: TX79_MMI0_PPACH */
-    case TX79_MMI0_PADDSB:    /* TODO: TX79_MMI0_PADDSB */
-    case TX79_MMI0_PSUBSB:    /* TODO: TX79_MMI0_PSUBSB */
-    case TX79_MMI0_PEXTLB:    /* TODO: TX79_MMI0_PEXTLB */
-    case TX79_MMI0_PPACB:     /* TODO: TX79_MMI0_PPACB */
-    case TX79_MMI0_PEXT5:     /* TODO: TX79_MMI0_PEXT5 */
-    case TX79_MMI0_PPAC5:     /* TODO: TX79_MMI0_PPAC5 */
-        generate_exception_end(ctx, EXCP_RI); /* TODO: TX79_MMI_CLASS_MMI0 */
+    case MMI_OPC_0_PADDW:     /* TODO: MMI_OPC_0_PADDW */
+    case MMI_OPC_0_PSUBW:     /* TODO: MMI_OPC_0_PSUBW */
+    case MMI_OPC_0_PCGTW:     /* TODO: MMI_OPC_0_PCGTW */
+    case MMI_OPC_0_PMAXW:     /* TODO: MMI_OPC_0_PMAXW */
+    case MMI_OPC_0_PADDH:     /* TODO: MMI_OPC_0_PADDH */
+    case MMI_OPC_0_PSUBH:     /* TODO: MMI_OPC_0_PSUBH */
+    case MMI_OPC_0_PCGTH:     /* TODO: MMI_OPC_0_PCGTH */
+    case MMI_OPC_0_PMAXH:     /* TODO: MMI_OPC_0_PMAXH */
+    case MMI_OPC_0_PADDB:     /* TODO: MMI_OPC_0_PADDB */
+    case MMI_OPC_0_PSUBB:     /* TODO: MMI_OPC_0_PSUBB */
+    case MMI_OPC_0_PCGTB:     /* TODO: MMI_OPC_0_PCGTB */
+    case MMI_OPC_0_PADDSW:    /* TODO: MMI_OPC_0_PADDSW */
+    case MMI_OPC_0_PSUBSW:    /* TODO: MMI_OPC_0_PSUBSW */
+    case MMI_OPC_0_PEXTLW:    /* TODO: MMI_OPC_0_PEXTLW */
+    case MMI_OPC_0_PPACW:     /* TODO: MMI_OPC_0_PPACW */
+    case MMI_OPC_0_PADDSH:    /* TODO: MMI_OPC_0_PADDSH */
+    case MMI_OPC_0_PSUBSH:    /* TODO: MMI_OPC_0_PSUBSH */
+    case MMI_OPC_0_PEXTLH:    /* TODO: MMI_OPC_0_PEXTLH */
+    case MMI_OPC_0_PPACH:     /* TODO: MMI_OPC_0_PPACH */
+    case MMI_OPC_0_PADDSB:    /* TODO: MMI_OPC_0_PADDSB */
+    case MMI_OPC_0_PSUBSB:    /* TODO: MMI_OPC_0_PSUBSB */
+    case MMI_OPC_0_PEXTLB:    /* TODO: MMI_OPC_0_PEXTLB */
+    case MMI_OPC_0_PPACB:     /* TODO: MMI_OPC_0_PPACB */
+    case MMI_OPC_0_PEXT5:     /* TODO: MMI_OPC_0_PEXT5 */
+    case MMI_OPC_0_PPAC5:     /* TODO: MMI_OPC_0_PPAC5 */
+        generate_exception_end(ctx, EXCP_RI); /* TODO: MMI_OPC_CLASS_MMI0 */
         break;
     default:
         MIPS_INVAL("TX79 MMI class MMI0");
@@ -24720,30 +27329,30 @@ static void decode_tx79_mmi0(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_tx79_mmi1(CPUMIPSState *env, DisasContext *ctx)
+static void decode_mmi1(CPUMIPSState *env, DisasContext *ctx)
 {
-    uint32_t opc = MASK_TX79_MMI1(ctx->opcode);
+    uint32_t opc = MASK_MMI1(ctx->opcode);
 
     switch (opc) {
-    case TX79_MMI1_PABSW:     /* TODO: TX79_MMI1_PABSW */
-    case TX79_MMI1_PCEQW:     /* TODO: TX79_MMI1_PCEQW */
-    case TX79_MMI1_PMINW:     /* TODO: TX79_MMI1_PMINW */
-    case TX79_MMI1_PADSBH:    /* TODO: TX79_MMI1_PADSBH */
-    case TX79_MMI1_PABSH:     /* TODO: TX79_MMI1_PABSH */
-    case TX79_MMI1_PCEQH:     /* TODO: TX79_MMI1_PCEQH */
-    case TX79_MMI1_PMINH:     /* TODO: TX79_MMI1_PMINH */
-    case TX79_MMI1_PCEQB:     /* TODO: TX79_MMI1_PCEQB */
-    case TX79_MMI1_PADDUW:    /* TODO: TX79_MMI1_PADDUW */
-    case TX79_MMI1_PSUBUW:    /* TODO: TX79_MMI1_PSUBUW */
-    case TX79_MMI1_PEXTUW:    /* TODO: TX79_MMI1_PEXTUW */
-    case TX79_MMI1_PADDUH:    /* TODO: TX79_MMI1_PADDUH */
-    case TX79_MMI1_PSUBUH:    /* TODO: TX79_MMI1_PSUBUH */
-    case TX79_MMI1_PEXTUH:    /* TODO: TX79_MMI1_PEXTUH */
-    case TX79_MMI1_PADDUB:    /* TODO: TX79_MMI1_PADDUB */
-    case TX79_MMI1_PSUBUB:    /* TODO: TX79_MMI1_PSUBUB */
-    case TX79_MMI1_PEXTUB:    /* TODO: TX79_MMI1_PEXTUB */
-    case TX79_MMI1_QFSRV:     /* TODO: TX79_MMI1_QFSRV */
-        generate_exception_end(ctx, EXCP_RI); /* TODO: TX79_MMI_CLASS_MMI1 */
+    case MMI_OPC_1_PABSW:     /* TODO: MMI_OPC_1_PABSW */
+    case MMI_OPC_1_PCEQW:     /* TODO: MMI_OPC_1_PCEQW */
+    case MMI_OPC_1_PMINW:     /* TODO: MMI_OPC_1_PMINW */
+    case MMI_OPC_1_PADSBH:    /* TODO: MMI_OPC_1_PADSBH */
+    case MMI_OPC_1_PABSH:     /* TODO: MMI_OPC_1_PABSH */
+    case MMI_OPC_1_PCEQH:     /* TODO: MMI_OPC_1_PCEQH */
+    case MMI_OPC_1_PMINH:     /* TODO: MMI_OPC_1_PMINH */
+    case MMI_OPC_1_PCEQB:     /* TODO: MMI_OPC_1_PCEQB */
+    case MMI_OPC_1_PADDUW:    /* TODO: MMI_OPC_1_PADDUW */
+    case MMI_OPC_1_PSUBUW:    /* TODO: MMI_OPC_1_PSUBUW */
+    case MMI_OPC_1_PEXTUW:    /* TODO: MMI_OPC_1_PEXTUW */
+    case MMI_OPC_1_PADDUH:    /* TODO: MMI_OPC_1_PADDUH */
+    case MMI_OPC_1_PSUBUH:    /* TODO: MMI_OPC_1_PSUBUH */
+    case MMI_OPC_1_PEXTUH:    /* TODO: MMI_OPC_1_PEXTUH */
+    case MMI_OPC_1_PADDUB:    /* TODO: MMI_OPC_1_PADDUB */
+    case MMI_OPC_1_PSUBUB:    /* TODO: MMI_OPC_1_PSUBUB */
+    case MMI_OPC_1_PEXTUB:    /* TODO: MMI_OPC_1_PEXTUB */
+    case MMI_OPC_1_QFSRV:     /* TODO: MMI_OPC_1_QFSRV */
+        generate_exception_end(ctx, EXCP_RI); /* TODO: MMI_OPC_CLASS_MMI1 */
         break;
     default:
         MIPS_INVAL("TX79 MMI class MMI1");
@@ -24752,34 +27361,34 @@ static void decode_tx79_mmi1(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_tx79_mmi2(CPUMIPSState *env, DisasContext *ctx)
+static void decode_mmi2(CPUMIPSState *env, DisasContext *ctx)
 {
-    uint32_t opc = MASK_TX79_MMI2(ctx->opcode);
+    uint32_t opc = MASK_MMI2(ctx->opcode);
 
     switch (opc) {
-    case TX79_MMI2_PMADDW:    /* TODO: TX79_MMI2_PMADDW */
-    case TX79_MMI2_PSLLVW:    /* TODO: TX79_MMI2_PSLLVW */
-    case TX79_MMI2_PSRLVW:    /* TODO: TX79_MMI2_PSRLVW */
-    case TX79_MMI2_PMSUBW:    /* TODO: TX79_MMI2_PMSUBW */
-    case TX79_MMI2_PMFHI:     /* TODO: TX79_MMI2_PMFHI */
-    case TX79_MMI2_PMFLO:     /* TODO: TX79_MMI2_PMFLO */
-    case TX79_MMI2_PINTH:     /* TODO: TX79_MMI2_PINTH */
-    case TX79_MMI2_PMULTW:    /* TODO: TX79_MMI2_PMULTW */
-    case TX79_MMI2_PDIVW:     /* TODO: TX79_MMI2_PDIVW */
-    case TX79_MMI2_PCPYLD:    /* TODO: TX79_MMI2_PCPYLD */
-    case TX79_MMI2_PMADDH:    /* TODO: TX79_MMI2_PMADDH */
-    case TX79_MMI2_PHMADH:    /* TODO: TX79_MMI2_PHMADH */
-    case TX79_MMI2_PAND:      /* TODO: TX79_MMI2_PAND */
-    case TX79_MMI2_PXOR:      /* TODO: TX79_MMI2_PXOR */
-    case TX79_MMI2_PMSUBH:    /* TODO: TX79_MMI2_PMSUBH */
-    case TX79_MMI2_PHMSBH:    /* TODO: TX79_MMI2_PHMSBH */
-    case TX79_MMI2_PEXEH:     /* TODO: TX79_MMI2_PEXEH */
-    case TX79_MMI2_PREVH:     /* TODO: TX79_MMI2_PREVH */
-    case TX79_MMI2_PMULTH:    /* TODO: TX79_MMI2_PMULTH */
-    case TX79_MMI2_PDIVBW:    /* TODO: TX79_MMI2_PDIVBW */
-    case TX79_MMI2_PEXEW:     /* TODO: TX79_MMI2_PEXEW */
-    case TX79_MMI2_PROT3W:    /* TODO: TX79_MMI2_PROT3W */
-        generate_exception_end(ctx, EXCP_RI); /* TODO: TX79_MMI_CLASS_MMI2 */
+    case MMI_OPC_2_PMADDW:    /* TODO: MMI_OPC_2_PMADDW */
+    case MMI_OPC_2_PSLLVW:    /* TODO: MMI_OPC_2_PSLLVW */
+    case MMI_OPC_2_PSRLVW:    /* TODO: MMI_OPC_2_PSRLVW */
+    case MMI_OPC_2_PMSUBW:    /* TODO: MMI_OPC_2_PMSUBW */
+    case MMI_OPC_2_PMFHI:     /* TODO: MMI_OPC_2_PMFHI */
+    case MMI_OPC_2_PMFLO:     /* TODO: MMI_OPC_2_PMFLO */
+    case MMI_OPC_2_PINTH:     /* TODO: MMI_OPC_2_PINTH */
+    case MMI_OPC_2_PMULTW:    /* TODO: MMI_OPC_2_PMULTW */
+    case MMI_OPC_2_PDIVW:     /* TODO: MMI_OPC_2_PDIVW */
+    case MMI_OPC_2_PCPYLD:    /* TODO: MMI_OPC_2_PCPYLD */
+    case MMI_OPC_2_PMADDH:    /* TODO: MMI_OPC_2_PMADDH */
+    case MMI_OPC_2_PHMADH:    /* TODO: MMI_OPC_2_PHMADH */
+    case MMI_OPC_2_PAND:      /* TODO: MMI_OPC_2_PAND */
+    case MMI_OPC_2_PXOR:      /* TODO: MMI_OPC_2_PXOR */
+    case MMI_OPC_2_PMSUBH:    /* TODO: MMI_OPC_2_PMSUBH */
+    case MMI_OPC_2_PHMSBH:    /* TODO: MMI_OPC_2_PHMSBH */
+    case MMI_OPC_2_PEXEH:     /* TODO: MMI_OPC_2_PEXEH */
+    case MMI_OPC_2_PREVH:     /* TODO: MMI_OPC_2_PREVH */
+    case MMI_OPC_2_PMULTH:    /* TODO: MMI_OPC_2_PMULTH */
+    case MMI_OPC_2_PDIVBW:    /* TODO: MMI_OPC_2_PDIVBW */
+    case MMI_OPC_2_PEXEW:     /* TODO: MMI_OPC_2_PEXEW */
+    case MMI_OPC_2_PROT3W:    /* TODO: MMI_OPC_2_PROT3W */
+        generate_exception_end(ctx, EXCP_RI); /* TODO: MMI_OPC_CLASS_MMI2 */
         break;
     default:
         MIPS_INVAL("TX79 MMI class MMI2");
@@ -24788,25 +27397,25 @@ static void decode_tx79_mmi2(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_tx79_mmi3(CPUMIPSState *env, DisasContext *ctx)
+static void decode_mmi3(CPUMIPSState *env, DisasContext *ctx)
 {
-    uint32_t opc = MASK_TX79_MMI3(ctx->opcode);
+    uint32_t opc = MASK_MMI3(ctx->opcode);
 
     switch (opc) {
-    case TX79_MMI3_PMADDUW:    /* TODO: TX79_MMI3_PMADDUW */
-    case TX79_MMI3_PSRAVW:     /* TODO: TX79_MMI3_PSRAVW */
-    case TX79_MMI3_PMTHI:      /* TODO: TX79_MMI3_PMTHI */
-    case TX79_MMI3_PMTLO:      /* TODO: TX79_MMI3_PMTLO */
-    case TX79_MMI3_PINTEH:     /* TODO: TX79_MMI3_PINTEH */
-    case TX79_MMI3_PMULTUW:    /* TODO: TX79_MMI3_PMULTUW */
-    case TX79_MMI3_PDIVUW:     /* TODO: TX79_MMI3_PDIVUW */
-    case TX79_MMI3_PCPYUD:     /* TODO: TX79_MMI3_PCPYUD */
-    case TX79_MMI3_POR:        /* TODO: TX79_MMI3_POR */
-    case TX79_MMI3_PNOR:       /* TODO: TX79_MMI3_PNOR */
-    case TX79_MMI3_PEXCH:      /* TODO: TX79_MMI3_PEXCH */
-    case TX79_MMI3_PCPYH:      /* TODO: TX79_MMI3_PCPYH */
-    case TX79_MMI3_PEXCW:      /* TODO: TX79_MMI3_PEXCW */
-        generate_exception_end(ctx, EXCP_RI); /* TODO: TX79_MMI_CLASS_MMI3 */
+    case MMI_OPC_3_PMADDUW:    /* TODO: MMI_OPC_3_PMADDUW */
+    case MMI_OPC_3_PSRAVW:     /* TODO: MMI_OPC_3_PSRAVW */
+    case MMI_OPC_3_PMTHI:      /* TODO: MMI_OPC_3_PMTHI */
+    case MMI_OPC_3_PMTLO:      /* TODO: MMI_OPC_3_PMTLO */
+    case MMI_OPC_3_PINTEH:     /* TODO: MMI_OPC_3_PINTEH */
+    case MMI_OPC_3_PMULTUW:    /* TODO: MMI_OPC_3_PMULTUW */
+    case MMI_OPC_3_PDIVUW:     /* TODO: MMI_OPC_3_PDIVUW */
+    case MMI_OPC_3_PCPYUD:     /* TODO: MMI_OPC_3_PCPYUD */
+    case MMI_OPC_3_POR:        /* TODO: MMI_OPC_3_POR */
+    case MMI_OPC_3_PNOR:       /* TODO: MMI_OPC_3_PNOR */
+    case MMI_OPC_3_PEXCH:      /* TODO: MMI_OPC_3_PEXCH */
+    case MMI_OPC_3_PCPYH:      /* TODO: MMI_OPC_3_PCPYH */
+    case MMI_OPC_3_PEXCW:      /* TODO: MMI_OPC_3_PEXCW */
+        generate_exception_end(ctx, EXCP_RI); /* TODO: MMI_OPC_CLASS_MMI3 */
         break;
     default:
         MIPS_INVAL("TX79 MMI class MMI3");
@@ -24815,56 +27424,56 @@ static void decode_tx79_mmi3(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_tx79_mmi(CPUMIPSState *env, DisasContext *ctx)
+static void decode_mmi(CPUMIPSState *env, DisasContext *ctx)
 {
-    uint32_t opc = MASK_TX79_MMI(ctx->opcode);
+    uint32_t opc = MASK_MMI(ctx->opcode);
     int rs = extract32(ctx->opcode, 21, 5);
     int rt = extract32(ctx->opcode, 16, 5);
     int rd = extract32(ctx->opcode, 11, 5);
 
     switch (opc) {
-    case TX79_MMI_CLASS_MMI0:
-        decode_tx79_mmi0(env, ctx);
+    case MMI_OPC_CLASS_MMI0:
+        decode_mmi0(env, ctx);
         break;
-    case TX79_MMI_CLASS_MMI1:
-        decode_tx79_mmi1(env, ctx);
+    case MMI_OPC_CLASS_MMI1:
+        decode_mmi1(env, ctx);
         break;
-    case TX79_MMI_CLASS_MMI2:
-        decode_tx79_mmi2(env, ctx);
+    case MMI_OPC_CLASS_MMI2:
+        decode_mmi2(env, ctx);
         break;
-    case TX79_MMI_CLASS_MMI3:
-        decode_tx79_mmi3(env, ctx);
+    case MMI_OPC_CLASS_MMI3:
+        decode_mmi3(env, ctx);
         break;
-    case TX79_MMI_MULT1:
-    case TX79_MMI_MULTU1:
+    case MMI_OPC_MULT1:
+    case MMI_OPC_MULTU1:
+    case MMI_OPC_MADD:
+    case MMI_OPC_MADDU:
+    case MMI_OPC_MADD1:
+    case MMI_OPC_MADDU1:
         gen_mul_txx9(ctx, opc, rd, rs, rt);
         break;
-    case TX79_MMI_DIV1:
-    case TX79_MMI_DIVU1:
-        gen_muldiv(ctx, opc, 1, rs, rt);
+    case MMI_OPC_DIV1:
+    case MMI_OPC_DIVU1:
+        gen_div1_tx79(ctx, opc, rs, rt);
         break;
-    case TX79_MMI_MTLO1:
-    case TX79_MMI_MTHI1:
-        gen_HILO(ctx, opc, 1, rs);
+    case MMI_OPC_MTLO1:
+    case MMI_OPC_MTHI1:
+        gen_HILO1_tx79(ctx, opc, rs);
         break;
-    case TX79_MMI_MFLO1:
-    case TX79_MMI_MFHI1:
-        gen_HILO(ctx, opc, 1, rd);
+    case MMI_OPC_MFLO1:
+    case MMI_OPC_MFHI1:
+        gen_HILO1_tx79(ctx, opc, rd);
         break;
-    case TX79_MMI_MADD:          /* TODO: TX79_MMI_MADD */
-    case TX79_MMI_MADDU:         /* TODO: TX79_MMI_MADDU */
-    case TX79_MMI_PLZCW:         /* TODO: TX79_MMI_PLZCW */
-    case TX79_MMI_MADD1:         /* TODO: TX79_MMI_MADD1 */
-    case TX79_MMI_MADDU1:        /* TODO: TX79_MMI_MADDU1 */
-    case TX79_MMI_PMFHL:         /* TODO: TX79_MMI_PMFHL */
-    case TX79_MMI_PMTHL:         /* TODO: TX79_MMI_PMTHL */
-    case TX79_MMI_PSLLH:         /* TODO: TX79_MMI_PSLLH */
-    case TX79_MMI_PSRLH:         /* TODO: TX79_MMI_PSRLH */
-    case TX79_MMI_PSRAH:         /* TODO: TX79_MMI_PSRAH */
-    case TX79_MMI_PSLLW:         /* TODO: TX79_MMI_PSLLW */
-    case TX79_MMI_PSRLW:         /* TODO: TX79_MMI_PSRLW */
-    case TX79_MMI_PSRAW:         /* TODO: TX79_MMI_PSRAW */
-        generate_exception_end(ctx, EXCP_RI);    /* TODO: TX79_CLASS_MMI */
+    case MMI_OPC_PLZCW:         /* TODO: MMI_OPC_PLZCW */
+    case MMI_OPC_PMFHL:         /* TODO: MMI_OPC_PMFHL */
+    case MMI_OPC_PMTHL:         /* TODO: MMI_OPC_PMTHL */
+    case MMI_OPC_PSLLH:         /* TODO: MMI_OPC_PSLLH */
+    case MMI_OPC_PSRLH:         /* TODO: MMI_OPC_PSRLH */
+    case MMI_OPC_PSRAH:         /* TODO: MMI_OPC_PSRAH */
+    case MMI_OPC_PSLLW:         /* TODO: MMI_OPC_PSLLW */
+    case MMI_OPC_PSRLW:         /* TODO: MMI_OPC_PSRLW */
+    case MMI_OPC_PSRAW:         /* TODO: MMI_OPC_PSRAW */
+        generate_exception_end(ctx, EXCP_RI);    /* TODO: MMI_OPC_CLASS_MMI */
         break;
     default:
         MIPS_INVAL("TX79 MMI class");
@@ -24873,14 +27482,14 @@ static void decode_tx79_mmi(CPUMIPSState *env, DisasContext *ctx)
     }
 }
 
-static void decode_tx79_lq(CPUMIPSState *env, DisasContext *ctx)
+static void gen_mmi_lq(CPUMIPSState *env, DisasContext *ctx)
 {
-    generate_exception_end(ctx, EXCP_RI);    /* TODO: TX79_LQ */
+    generate_exception_end(ctx, EXCP_RI);    /* TODO: MMI_OPC_LQ */
 }
 
-static void gen_tx79_sq(DisasContext *ctx, int base, int rt, int offset)
+static void gen_mmi_sq(DisasContext *ctx, int base, int rt, int offset)
 {
-    generate_exception_end(ctx, EXCP_RI);    /* TODO: TX79_SQ */
+    generate_exception_end(ctx, EXCP_RI);    /* TODO: MMI_OPC_SQ */
 }
 
 /*
@@ -24904,7 +27513,7 @@ static void gen_tx79_sq(DisasContext *ctx, int base, int rt, int offset)
  * In user mode, QEMU must verify the upper and lower 11 bits to distinguish
  * between SQ and RDHWR, as the Linux kernel does.
  */
-static void decode_tx79_sq(CPUMIPSState *env, DisasContext *ctx)
+static void decode_mmi_sq(CPUMIPSState *env, DisasContext *ctx)
 {
     int base = extract32(ctx->opcode, 21, 5);
     int rt = extract32(ctx->opcode, 16, 5);
@@ -24922,7 +27531,7 @@ static void decode_tx79_sq(CPUMIPSState *env, DisasContext *ctx)
     }
 #endif
 
-    gen_tx79_sq(ctx, base, rt, offset);
+    gen_mmi_sq(ctx, base, rt, offset);
 }
 
 static void decode_opc_special3(CPUMIPSState *env, DisasContext *ctx)
@@ -26231,14 +28840,18 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_SPECIAL2:
         if ((ctx->insn_flags & INSN_R5900) && (ctx->insn_flags & ASE_MMI)) {
-            decode_tx79_mmi(env, ctx);
+            decode_mmi(env, ctx);
+#if !defined(TARGET_MIPS64)
+        } else if (ctx->insn_flags & ASE_MXU) {
+            decode_opc_mxu(env, ctx);
+#endif
         } else {
             decode_opc_special2_legacy(env, ctx);
         }
         break;
     case OPC_SPECIAL3:
         if (ctx->insn_flags & INSN_R5900) {
-            decode_tx79_sq(env, ctx);    /* TX79_SQ */
+            decode_mmi_sq(env, ctx);    /* MMI_OPC_SQ */
         } else {
             decode_opc_special3(env, ctx);
         }
@@ -26528,7 +29141,9 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
          break;
     case OPC_LL: /* Load and stores */
         check_insn(ctx, ISA_MIPS2);
-        check_insn_opc_user_only(ctx, INSN_R5900);
+        if (ctx->insn_flags & INSN_R5900) {
+            check_insn_opc_user_only(ctx, INSN_R5900);
+        }
         /* Fallthrough */
     case OPC_LWL:
     case OPC_LWR:
@@ -26554,7 +29169,9 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
     case OPC_SC:
         check_insn(ctx, ISA_MIPS2);
          check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        check_insn_opc_user_only(ctx, INSN_R5900);
+        if (ctx->insn_flags & INSN_R5900) {
+            check_insn_opc_user_only(ctx, INSN_R5900);
+        }
          gen_st_cond(ctx, op, rt, rs, imm);
          break;
     case OPC_CACHE:
@@ -26568,9 +29185,12 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_PREF:
         check_insn_opc_removed(ctx, ISA_MIPS32R6);
-        check_insn(ctx, ISA_MIPS4 | ISA_MIPS32 |
-                   INSN_R5900);
-        /* Treat as NOP. */
+        if (ctx->insn_flags & INSN_R5900) {
+            /* Treat as NOP. */
+        } else {
+            check_insn(ctx, ISA_MIPS4 | ISA_MIPS32);
+            /* Treat as NOP. */
+        }
         break;
 
     /* Floating point (COP1). */
@@ -26822,7 +29442,9 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
 #if defined(TARGET_MIPS64)
     /* MIPS64 opcodes */
     case OPC_LLD:
-        check_insn_opc_user_only(ctx, INSN_R5900);
+        if (ctx->insn_flags & INSN_R5900) {
+            check_insn_opc_user_only(ctx, INSN_R5900);
+        }
         /* fall through */
     case OPC_LDL:
     case OPC_LDR:
@@ -26846,7 +29468,9 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
     case OPC_SCD:
         check_insn_opc_removed(ctx, ISA_MIPS32R6);
         check_insn(ctx, ISA_MIPS3);
-        check_insn_opc_user_only(ctx, INSN_R5900);
+        if (ctx->insn_flags & INSN_R5900) {
+            check_insn_opc_user_only(ctx, INSN_R5900);
+        }
         check_mips_64(ctx);
         gen_st_cond(ctx, op, rt, rs, imm);
         break;
@@ -26902,7 +29526,7 @@ static void decode_opc(CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_MSA: /* OPC_MDMX */
         if (ctx->insn_flags & INSN_R5900) {
-            decode_tx79_lq(env, ctx);    /* TX79_LQ */
+            gen_mmi_lq(env, ctx);    /* MMI_OPC_LQ */
         } else {
             /* MDMX: Not implemented. */
             gen_msa(env, ctx);
@@ -27229,6 +29853,29 @@ void mips_tcg_init(void)
     fpu_fcr31 = tcg_global_mem_new_i32(cpu_env,
                                        offsetof(CPUMIPSState, active_fpu.fcr31),
                                        "fcr31");
+
+#if defined(TARGET_MIPS64)
+    cpu_mmr[0] = NULL;
+    for (i = 1; i < 32; i++) {
+        cpu_mmr[i] = tcg_global_mem_new_i64(cpu_env,
+                                            offsetof(CPUMIPSState,
+                                                     active_tc.mmr[i]),
+                                            regnames[i]);
+    }
+#endif
+
+#if !defined(TARGET_MIPS64)
+    for (i = 0; i < NUMBER_OF_MXU_REGISTERS - 1; i++) {
+        mxu_gpr[i] = tcg_global_mem_new(cpu_env,
+                                        offsetof(CPUMIPSState,
+                                                 active_tc.mxu_gpr[i]),
+                                        mxuregnames[i]);
+    }
+
+    mxu_CR = tcg_global_mem_new(cpu_env,
+                                offsetof(CPUMIPSState, active_tc.mxu_cr),
+                                mxuregnames[NUMBER_OF_MXU_REGISTERS - 1]);
+#endif
 }
 
 #include "translate_init.inc.c"
@@ -27250,7 +29897,7 @@ bool cpu_supports_cps_smp(const char *cpu_type)
     return (mcc->cpu_def->CP0_Config3 & (1 << CP0C3_CMGCR)) != 0;
 }
 
-bool cpu_supports_isa(const char *cpu_type, unsigned int isa)
+bool cpu_supports_isa(const char *cpu_type, uint64_t isa)
 {
     const MIPSCPUClass *mcc = MIPS_CPU_CLASS(object_class_by_name(cpu_type));
     return (mcc->cpu_def->insn_flags & isa) != 0;

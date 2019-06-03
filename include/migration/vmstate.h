@@ -40,8 +40,8 @@ typedef struct VMStateField VMStateField;
  */
 struct VMStateInfo {
     const char *name;
-    int (*get)(QEMUFile *f, void *pv, size_t size, VMStateField *field);
-    int (*put)(QEMUFile *f, void *pv, size_t size, VMStateField *field,
+    int (*get)(QEMUFile *f, void *pv, size_t size, const VMStateField *field);
+    int (*put)(QEMUFile *f, void *pv, size_t size, const VMStateField *field,
                QJSON *vmdesc);
 };
 
@@ -185,8 +185,9 @@ struct VMStateDescription {
     int (*pre_load)(void *opaque);
     int (*post_load)(void *opaque, int version_id);
     int (*pre_save)(void *opaque);
+    int (*post_save)(void *opaque);
     bool (*needed)(void *opaque);
-    VMStateField *fields;
+    const VMStateField *fields;
     const VMStateDescription **subsections;
 };
 
